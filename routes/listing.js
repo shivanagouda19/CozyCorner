@@ -5,7 +5,7 @@ const wrapAsync = require("../utils/wrapAsync.js");
 const ExpressError = require("../utils/ExpressError");
 const { listingSchema } = require("../schema.js");
 const Listing = require("../models/listing.js");
-
+const isLoggedIn = require("../middleware.js");
 const redirectListingNotFound = (req, res) => {
     req.flash("error", "Listing does not exist.");
     return res.redirect("/listings");
@@ -28,9 +28,9 @@ router.get("/", wrapAsync(async (req, res) => {
 }))
 
 //new route
-router.get("/new", (req, res) => {
-    res.render("listings/new.ejs")
-})
+router.get("/new",isLoggedIn, (req, res) => {
+    res.render("listings/new.ejs");
+});
 
 //show route
 router.get("/:id", wrapAsync(async (req, res) => {
@@ -39,7 +39,9 @@ router.get("/:id", wrapAsync(async (req, res) => {
         return redirectListingNotFound(req, res);
     }
 
-    const listing = await Listing.findById(id).populate("reviews");
+    const listing = await Listing.findById(id)
+        .populate("reviews")
+        .populate("owner");
     if (!listing) {
         return redirectListingNotFound(req, res);
     }
@@ -47,7 +49,7 @@ router.get("/:id", wrapAsync(async (req, res) => {
     res.render("listings/show.ejs", { listing });
 }))
 // create route
-router.post("/", validateListing, wrapAsync(async (req, res, next) => {
+router.post("/",isLoggedIn, validateListing, wrapAsync(async (req, res, next) => {
     // let {title, description, image, price, country, location} = req.body;// req.body; returns objest which contains data from from
     // let listing = {
     //     title: title, 
@@ -60,6 +62,7 @@ router.post("/", validateListing, wrapAsync(async (req, res, next) => {
 
     // console.log(req.body);
     const newListing = new Listing(req.body.listing);
+    newListing.owner = req.user._id;
     await newListing.save();
     req.flash("success", "New Listing Created!");
     res.redirect("/listings");
@@ -67,7 +70,7 @@ router.post("/", validateListing, wrapAsync(async (req, res, next) => {
 
 }))
 //edit route
-router.get("/:id/edit", wrapAsync(async (req, res) => {
+router.get("/:id/edit",isLoggedIn, wrapAsync(async (req, res) => {
     let { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return redirectListingNotFound(req, res);
@@ -81,7 +84,7 @@ router.get("/:id/edit", wrapAsync(async (req, res) => {
     res.render("listings/edit.ejs", { listing })
 }))
 //Update Route
-router.put("/:id", validateListing, wrapAsync(async (req, res) => {
+router.put("/:id",isLoggedIn, validateListing, wrapAsync(async (req, res) => {
     let { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return redirectListingNotFound(req, res);
@@ -95,7 +98,7 @@ router.put("/:id", validateListing, wrapAsync(async (req, res) => {
     res.redirect(`/listings/${id}`);
 }));
 //delete route
-router.delete("/:id", wrapAsync(async (req, res) => {
+router.delete("/:id",isLoggedIn, wrapAsync(async (req, res) => {
     let { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return redirectListingNotFound(req, res);
