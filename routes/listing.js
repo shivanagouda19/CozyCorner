@@ -2,30 +2,18 @@ const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 const wrapAsync = require("../utils/wrapAsync.js");
-const ExpressError = require("../utils/ExpressError");
-const { listingSchema } = require("../schema.js");
 const Listing = require("../models/listing.js");
-const isLoggedIn = require("../middleware.js");
+const {isLoggedIn, isOwner, validateListing} = require("../middleware.js");
+const listingController = require("../controllers/listings.js")
 const redirectListingNotFound = (req, res) => {
     req.flash("error", "Listing does not exist.");
     return res.redirect("/listings");
 };
 
-const validateListing = (req, res, next)=>{
-let {error}= listingSchema.validate(req.body);
-if (error) {
-    let errMsg = error.details.map((el)=> el.message).join(",");
-throw new ExpressError (400, errMsg);
-}else{
-    next();
-}
-}
+
 
 //index route
-router.get("/", wrapAsync(async (req, res) => {
-    let allListings = await Listing.find({});
-    res.render("listings/index.ejs", { allListings })
-}))
+router.get("/", wrapAsync(listingController.index))
 
 //new route
 router.get("/new",isLoggedIn, (req, res) => {
@@ -40,7 +28,7 @@ router.get("/:id", wrapAsync(async (req, res) => {
     }
 
     const listing = await Listing.findById(id)
-        .populate("reviews")
+        .populate({path :"reviews" , populate : { path : "author"}})
         .populate("owner");
     if (!listing) {
         return redirectListingNotFound(req, res);
@@ -70,7 +58,7 @@ router.post("/",isLoggedIn, validateListing, wrapAsync(async (req, res, next) =>
 
 }))
 //edit route
-router.get("/:id/edit",isLoggedIn, wrapAsync(async (req, res) => {
+router.get("/:id/edit",isLoggedIn, isOwner, wrapAsync(async (req, res) => {
     let { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return redirectListingNotFound(req, res);
@@ -84,7 +72,7 @@ router.get("/:id/edit",isLoggedIn, wrapAsync(async (req, res) => {
     res.render("listings/edit.ejs", { listing })
 }))
 //Update Route
-router.put("/:id",isLoggedIn, validateListing, wrapAsync(async (req, res) => {
+router.put("/:id", isLoggedIn, isOwner, validateListing, wrapAsync(async (req, res) => {
     let { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return redirectListingNotFound(req, res);
@@ -98,7 +86,7 @@ router.put("/:id",isLoggedIn, validateListing, wrapAsync(async (req, res) => {
     res.redirect(`/listings/${id}`);
 }));
 //delete route
-router.delete("/:id",isLoggedIn, wrapAsync(async (req, res) => {
+router.delete("/:id",isLoggedIn, isOwner, wrapAsync(async (req, res) => {
     let { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return redirectListingNotFound(req, res);
