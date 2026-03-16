@@ -25,6 +25,7 @@ router.get("/new", isLoggedIn, listingController.renderNewForm);
 
 //edit route
 router.get("/:id/edit", isLoggedIn, isOwner, wrapAsync(listingController.renderEditForm));
+router.get("/:id/nearby", wrapAsync(listingController.getNearbyListings));
 
 router
 	.route("/:id")

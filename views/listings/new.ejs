@@ -1,7 +1,7 @@
 <% layout("/layouts/boilerplate.ejs") -%>
 
     <div class="row">
-        <div class="col-8 offset-2">
+        <div class="col-12 col-lg-10 offset-lg-1">
             <h2>Create a New Listing</h2>
             <br>
             <form method="POST" action="/listings" enctype="multipart/form-data" novalidate class="needs-validation">
@@ -52,8 +52,8 @@
                     </div>
                     <br />
                     <div class="mb-3 col-md-8">
-                        <label for="country" class="form-label">country</label>
-                        <input name="listing[country]" placeholder="enter country" type="text" class="form-control" required/>
+                        <label for="listing-country" class="form-label">country</label>
+                        <input name="listing[country]" id="listing-country" placeholder="enter country" type="text" class="form-control" required/>
                         <div class="valid-feedback">
                             Looks good!
                         </div>
@@ -64,14 +64,23 @@
                 </div>
                 <br />
                 <div class="mb-3">
-                    <label for="location" class="form-label">location</label>
-                    <input name="listing[location]" placeholder="enter location" type="text" class="form-control" required/>
+                    <label for="listing-location" class="form-label">location</label>
+                    <input name="listing[location]" id="listing-location" placeholder="enter location" type="text" class="form-control" required/>
                     <div class="valid-feedback">
                             Looks good!
                         </div>
                         <div class="invalid-feedback">
                             Please choose a location.
                         </div>
+                </div>
+                <input type="hidden" name="listing[geometry][type]" id="listing-geometry-type" value="Point">
+                <input type="hidden" name="listing[geometry][coordinates][0]" id="listing-lng" value="">
+                <input type="hidden" name="listing[geometry][coordinates][1]" id="listing-lat" value="">
+
+                <div class="mb-3 create-map-preview-wrapper">
+                    <label class="form-label">Live Map Preview</label>
+                    <div id="create-listing-map" class="listing-map-preview"></div>
+                    <p id="create-map-status" class="map-status-text mt-2 mb-0">Start typing location and country to preview the map.</p>
                 </div>
                 <br />
                 <button class="btn btn-dark d-block mx-auto add-btn">Add Listing</button>
@@ -80,6 +89,15 @@
             </form>
         </div>
     </div>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" rel="stylesheet">
+    <script>
+        window.createListingMapData = {
+            mapToken: <%- JSON.stringify(mapToken) %>,
+            fallbackZoom: <%- JSON.stringify(fallbackZoom) %>
+        };
+    </script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
+    <script src="/js/createListingMap.js"></script>
     <!-- <input name="title" placeholder="enter title" type="text" />
         <br />
         <textarea name="description" placeholder="enter description"></textarea>

@@ -31,18 +31,43 @@
             <% if (listing.geometry && listing.geometry.coordinates && listing.geometry.coordinates.length === 2) { %>
                 <hr>
                 <h4 class="col-8 offset-2">Location on Map</h4>
-                <div id="map" class="col-8 offset-2"></div>
+                <div
+                    id="map"
+                    class="col-8 offset-2"
+                    data-map-data='<%- JSON.stringify({
+                        mapToken,
+                        coordinates: listing.geometry.coordinates,
+                        title: listing.title,
+                        location: listing.location,
+                        country: listing.country,
+                        price: listing.price
+                    }) %>'
+                ></div>
                 <link href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" rel="stylesheet">
-                <script>
-                    window.listingMapData = {
-                        mapToken: <%- JSON.stringify(mapToken) %>,
-                        coordinates: <%- JSON.stringify(listing.geometry.coordinates) %>,
-                        title: <%- JSON.stringify(listing.title) %>
-                    };
-                </script>
                 <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
                 <script src="/js/listingMap.js"></script>
             <% } %>
+
+                <% if (nearbyListings && nearbyListings.length) { %>
+                    <hr>
+                    <h4>Nearby stays within 5 km</h4>
+                    <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
+                        <% nearbyListings.forEach((nearby) => { %>
+                            <div class="col">
+                                <a class="text-decoration-none text-dark" href="/listings/<%= nearby._id %>">
+                                    <div class="card h-100 nearby-card">
+                                        <img src="<%= nearby.image?.url %>" class="card-img-top" alt="nearby_listing_image" style="height: 12rem;">
+                                        <div class="card-body">
+                                            <h6 class="card-title mb-1"><%= nearby.title %></h6>
+                                            <p class="card-text mb-1"><%= nearby.location %>, <%= nearby.country %></p>
+                                            <p class="card-text mb-0">&#8377;<%= nearby.price ? nearby.price.toLocaleString("en-IN") : "Price not set" %> / night</p>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                        <% }) %>
+                    </div>
+                <% } %>
 
                 <hr>
                 <% if(currUser) { %>

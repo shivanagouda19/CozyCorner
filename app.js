@@ -5,7 +5,8 @@ require("dotenv").config();
 const express = require("express");
 const app = express();
 const mongoose = require("mongoose");
-const MONGO_URL = "mongodb://127.0.0.1:27017/wanderlust";
+// const MONGO_URL = "mongodb://127.0.0.1:27017/wanderlust";
+const MONGO_URL_ATLASDB = process.env.ATLASDB;
 const path = require("path");
 const methodOverride = require("method-override");
 const ejsMate = require("ejs-mate"); // help to make templte
@@ -15,6 +16,7 @@ const reviewRouter = require("./routes/review.js")// import the router
 const userRouter = require("./routes/user.js")// import the router
 const profileRouter = require("./routes/profile.js")
 const session = require("express-session"); //this is used for create session
+const { MongoStore } = require('connect-mongo');
 const flash = require("connect-flash");   // this is for flashing a message
 const passport = require("passport");// this is for hashing password and many more
 const LocalStrategy = require("passport-local"); // A strategy tells Passport how to authenticate a user. in this case it is localstrategy
@@ -27,7 +29,7 @@ main().then(() => {
 })
 
 async function main() {
-    await mongoose.connect(MONGO_URL);
+    await mongoose.connect(MONGO_URL_ATLASDB);
 }
 
 app.set("view engine", "ejs");
@@ -39,10 +41,23 @@ app.engine("ejs", ejsMate);
 app.use(express.static(path.join(__dirname, "/public")));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+const store = MongoStore.create({
+    mongoUrl: MONGO_URL_ATLASDB,
+    crypto:
+    {
+        secret: process.env.SECRET,
+    },
+    touchAfter: 24 * 3600,
+});
+
+store.on("error", (err) => {
+    console.log("ERROR in MONGO SESSION STORE", err);
+});
 
 //cookie is created by the express-session middlewar
 const sessionOptions = {
-    secret: "mysecretcode",// Used to sign the session ID 
+    store,
+    secret: process.env.SECRET,// Used to sign the session ID 
     resave: false,// Prevents saving session again if nothing changed
     saveUninitialized: true, //true → session created for every visitor //false → session created only when data is stored
     cookie: {//Controls session cookie behavior.

@@ -6,6 +6,10 @@ module.exports.listingSchema = Joi.object({
         location:Joi.string().required(),
         country:Joi.string().required(),
         price:Joi.number().required().min(0),
+        geometry: Joi.object({
+            type: Joi.string().valid("Point").optional(),
+            coordinates: Joi.array().items(Joi.number()).length(2).optional(),
+        }).optional(),
         image: Joi.object({
             url: Joi.string().allow("", null),
             filename: Joi.string().allow("", null),
