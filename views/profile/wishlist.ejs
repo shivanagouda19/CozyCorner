@@ -1,0 +1,50 @@
+<% layout("/layouts/boilerplate.ejs") -%>
+<link rel="stylesheet" href="/css/profile.css">
+
+<%
+  const user = profileData?.user || {};
+  const wishlistListings = profileData?.wishlistListings || [];
+  const fullName = user.fullName || user.username || "Member";
+%>
+
+<section class="profile-shell">
+  <div class="profile-grid mt-2">
+    <%- include("./includes/sidebar.ejs", { activeRoute }) %>
+
+    <main class="profile-main">
+      <section class="card-section reveal-up" data-stagger="2">
+        <div class="section-head">
+          <h2><%= fullName %>'s wishlist</h2>
+          <a href="/listings" class="text-link">Explore stays</a>
+        </div>
+
+        <% if (wishlistListings.length) { %>
+          <div class="preview-grid listing-grid">
+            <% wishlistListings.forEach((listing) => { %>
+              <article class="preview-card wishlist-preview-card">
+                <a href="/listings/<%= listing._id %>">
+                  <img src="<%= listing.image?.url || 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800&h=500&fit=crop' %>" alt="<%= listing.title %>">
+                </a>
+                <div>
+                  <h5><%= listing.title %></h5>
+                  <p><%= listing.location || 'Unknown location' %> · <%= listing.country || 'Unknown country' %></p>
+                  <small>INR <%= Number(listing.price || 0).toLocaleString('en-IN') %> per night</small>
+                  <form method="POST" action="/listings/<%= listing._id %>/wishlist" class="mt-2">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="btn btn-sm listing-btn-danger">Remove from wishlist</button>
+                  </form>
+                </div>
+              </article>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <article class="empty-block">
+            Your wishlist is empty right now. Save listings you love to compare and book later.
+          </article>
+        <% } %>
+      </section>
+    </main>
+  </div>
+</section>
+
+<script src="/js/profile.js"></script>

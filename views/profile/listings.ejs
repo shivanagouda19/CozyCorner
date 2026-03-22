@@ -1,0 +1,114 @@
+<% layout("/layouts/boilerplate.ejs") -%>
+<link rel="stylesheet" href="/css/profile.css">
+
+<%
+  const user = profileData?.user || {};
+  const listings = profileData?.listings || [];
+  const fullName = user.fullName || user.username || "Host";
+%>
+
+<section class="profile-shell">
+  <div class="profile-grid mt-2">
+    <%- include("./includes/sidebar.ejs", { activeRoute }) %>
+
+    <main class="profile-main">
+      <section class="card-section reveal-up" data-stagger="2">
+        <div class="section-head">
+          <h2><%= fullName %>'s listing control panel</h2>
+          <a href="/listings/new" class="text-link">Add new listing</a>
+        </div>
+
+        <div class="preview-grid listing-grid">
+          <% if (listings.length) { %>
+            <% listings.forEach((listing) => { %>
+              <article class="preview-card host-listing-card">
+                <a href="/listings/<%= listing._id %>">
+                  <img src="<%= listing.image?.url || 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800&h=500&fit=crop' %>" alt="<%= listing.title %>">
+                </a>
+                <div class="host-listing-card-body">
+                  <div class="host-listing-head-row">
+                    <h5><%= listing.title %></h5>
+                    <span class="status-pill <%= listing.status === 'active' ? 'active' : 'inactive' %>">
+                      <%= listing.status === 'active' ? 'Active' : 'Inactive' %>
+                    </span>
+                  </div>
+                  <p><%= listing.location || 'Unknown location' %> · <%= listing.country || 'Unknown country' %></p>
+                  <small class="d-block mb-2">INR <%= Number(listing.price || 0).toLocaleString('en-IN') %> per night</small>
+
+                  <div class="host-listing-actions-grid">
+                    <a href="/listings/<%= listing._id %>/edit" class="btn btn-sm nav-ghost-btn">Edit</a>
+
+                    <form method="POST" action="/listings/<%= listing._id %>/status?_method=PATCH">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <button type="submit" class="btn btn-sm nav-ghost-btn w-100">
+                        <%= listing.status === 'active' ? 'Set Inactive' : 'Set Active' %>
+                      </button>
+                    </form>
+
+                    <a href="/profile/bookings/host?listingId=<%= listing._id %>" class="btn btn-sm nav-ghost-btn">View bookings</a>
+
+                    <button
+                      type="button"
+                      class="btn btn-sm listing-btn-danger"
+                      data-bs-toggle="modal"
+                      data-bs-target="#deleteListingModal"
+                      data-delete-action="/listings/<%= listing._id %>?_method=DELETE"
+                      data-listing-title="<%= listing.title %>"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </article>
+            <% }) %>
+          <% } else { %>
+            <article class="empty-block">No listings yet. Publish your first stay to start receiving bookings.</article>
+          <% } %>
+        </div>
+      </section>
+    </main>
+  </div>
+</section>
+
+<div class="modal fade" id="deleteListingModal" tabindex="-1" aria-labelledby="deleteListingModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content host-delete-modal">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteListingModalLabel">Delete listing</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">Are you sure you want to delete <strong id="deleteListingTitle">this listing</strong>? This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn nav-ghost-btn" data-bs-dismiss="modal">Cancel</button>
+        <form id="deleteListingForm" method="POST" action="">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn listing-btn-danger">Delete permanently</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (() => {
+    const deleteModal = document.getElementById("deleteListingModal");
+    const deleteForm = document.getElementById("deleteListingForm");
+    const deleteTitle = document.getElementById("deleteListingTitle");
+    if (!deleteModal || !deleteForm || !deleteTitle) return;
+
+    deleteModal.addEventListener("show.bs.modal", (event) => {
+      const trigger = event.relatedTarget;
+      if (!(trigger instanceof HTMLElement)) return;
+
+      const action = trigger.getAttribute("data-delete-action") || "";
+      const title = trigger.getAttribute("data-listing-title") || "this listing";
+
+      deleteForm.setAttribute("action", action);
+      deleteTitle.textContent = title;
+    });
+  })();
+</script>
+
+<script src="/js/profile.js"></script>

@@ -1,0 +1,140 @@
+<% layout("/layouts/boilerplate.ejs") -%>
+
+<%
+  const pending = bookingData?.pending || [];
+  const confirmed = bookingData?.confirmed || [];
+  const completed = bookingData?.completed || [];
+  const cancelled = bookingData?.cancelled || [];
+  const rejected = bookingData?.rejected || [];
+
+  const formatDateRange = (checkIn, checkOut) => {
+    if (!checkIn || !checkOut) return "Dates unavailable";
+    const start = new Date(checkIn).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const end = new Date(checkOut).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return `${start} - ${end}`;
+  };
+%>
+
+<section class="listings-page">
+  <header class="listings-page-head">
+    <p class="section-kicker mb-2">Bookings</p>
+    <h1 class="section-title mb-2">My booking dashboard</h1>
+    <p class="section-subtitle mb-0">Track upcoming trips, completed stays, and cancellations in one place.</p>
+  </header>
+
+  <div class="booking-dashboard-grid">
+    <article class="show-section">
+      <h4>Pending confirmation</h4>
+      <% if (pending.length) { %>
+        <div class="booking-list-stack">
+          <% pending.forEach((booking) => { %>
+            <div class="booking-dashboard-card">
+              <div>
+                <h6 class="mb-1"><%= booking.listing?.title || "Listing unavailable" %></h6>
+                <p class="mb-1"><%= formatDateRange(booking.checkIn, booking.checkOut) %></p>
+                <small><%= booking.guestsCount %> guest(s) · <%= booking.nights %> night(s)</small>
+              </div>
+              <div class="text-end">
+                <p class="booking-total mb-1">INR <%= booking.totalPrice?.toLocaleString("en-IN") %></p>
+                <span class="booking-status-badge pending">Pending</span>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <p class="mb-0 trust-empty-copy">No pending bookings right now. When you request a stay, host confirmation appears here.</p>
+      <% } %>
+    </article>
+
+    <article class="show-section">
+      <h4>Upcoming</h4>
+      <% if (confirmed.length) { %>
+        <div class="booking-list-stack">
+          <% confirmed.forEach((booking) => { %>
+            <div class="booking-dashboard-card">
+              <div>
+                <h6 class="mb-1"><%= booking.listing?.title || "Listing unavailable" %></h6>
+                <p class="mb-1"><%= formatDateRange(booking.checkIn, booking.checkOut) %></p>
+                <small><%= booking.guestsCount %> guest(s) · <%= booking.nights %> night(s)</small>
+              </div>
+              <div class="text-end">
+                <p class="booking-total mb-1">INR <%= booking.totalPrice?.toLocaleString("en-IN") %></p>
+                <span class="booking-status-badge confirmed mb-2">Confirmed</span>
+                <form method="POST" action="/bookings/<%= booking._id %>/cancel?_method=PATCH">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input type="hidden" name="booking[cancellationReason]" value="Cancelled from user dashboard">
+                  <button class="btn btn-sm listing-btn-danger">Cancel</button>
+                </form>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <p class="mb-0 trust-empty-copy">No upcoming bookings yet. Explore verified homes to plan your next trip.</p>
+      <% } %>
+    </article>
+
+    <article class="show-section">
+      <h4>Rejected</h4>
+      <% if (rejected.length) { %>
+        <div class="booking-list-stack">
+          <% rejected.forEach((booking) => { %>
+            <div class="booking-dashboard-card cancelled">
+              <div>
+                <h6 class="mb-1"><%= booking.listing?.title || "Listing unavailable" %></h6>
+                <p class="mb-1"><%= formatDateRange(booking.checkIn, booking.checkOut) %></p>
+                <small>This request was rejected by the host.</small>
+              </div>
+              <span class="booking-status-badge rejected">Rejected</span>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <p class="mb-0 trust-empty-copy">No rejected booking requests.</p>
+      <% } %>
+    </article>
+
+    <article class="show-section">
+      <h4>Completed</h4>
+      <% if (completed.length) { %>
+        <div class="booking-list-stack">
+          <% completed.forEach((booking) => { %>
+            <div class="booking-dashboard-card">
+              <div>
+                <h6 class="mb-1"><%= booking.listing?.title || "Listing unavailable" %></h6>
+                <p class="mb-1"><%= formatDateRange(booking.checkIn, booking.checkOut) %></p>
+                <small><%= booking.guestsCount %> guest(s) · <%= booking.nights %> night(s)</small>
+              </div>
+              <div class="text-end">
+                <p class="booking-total mb-1">INR <%= booking.totalPrice?.toLocaleString("en-IN") %></p>
+                <span class="booking-status-badge completed">Completed</span>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <p class="mb-0 trust-empty-copy">No completed bookings yet. Your past stays and receipts will appear here.</p>
+      <% } %>
+    </article>
+
+    <article class="show-section">
+      <h4>Cancelled</h4>
+      <% if (cancelled.length) { %>
+        <div class="booking-list-stack">
+          <% cancelled.forEach((booking) => { %>
+            <div class="booking-dashboard-card cancelled">
+              <div>
+                <h6 class="mb-1"><%= booking.listing?.title || "Listing unavailable" %></h6>
+                <p class="mb-1"><%= formatDateRange(booking.checkIn, booking.checkOut) %></p>
+                <small>Cancelled on <%= booking.cancelledAt ? new Date(booking.cancelledAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A" %></small>
+              </div>
+              <span class="booking-status-badge cancelled">Cancelled</span>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <p class="mb-0 trust-empty-copy">No cancelled bookings. Flexible cancellation details are shown before each reservation.</p>
+      <% } %>
+    </article>
+  </div>
+</section>

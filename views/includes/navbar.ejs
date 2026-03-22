@@ -1,24 +1,50 @@
-<nav class="navbar navbar-expand-md bg-body-ligth sticky-top">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="/"><i class="fa-solid fa-compass"></i></a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" >
+<%
+  const hasUser = typeof currUser !== "undefined" && currUser;
+%>
+<nav class="navbar navbar-expand-lg app-navbar sticky-top">
+  <div class="container-fluid app-navbar-shell">
+    <a class="navbar-brand app-brand" href="/listings" aria-label="Wanderlust home">
+      <span class="brand-mark"><i class="fa-solid fa-compass"></i></span>
+      <span class="brand-lockup">
+        <span class="brand-text">Wanderlust</span>
+        <span class="brand-subtext">Premium stays platform</span>
+      </span>
+    </a>
+
+    <button class="navbar-toggler app-navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
+
     <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
-      <div class="navbar-nav">
-        <a class="nav-link"href="/">Home</a>
-        <a class="nav-link" href="/listings">All Listings</a>
-        <a class="nav-link" href="/listings/new">Add Listing</a>
+      <div class="navbar-nav app-nav-links">
+        <a class="nav-link" href="/listings">Explore stays</a>
+        <a class="nav-link" href="/listings/new">Become a host</a>
+      </div>
 
-        <% if(!currUser) { %>
-          <a class="nav-link" href="/signup">Sign up</a>
-          <a class="nav-link" href="/login">Log in</a>
-        <% } %>
-        <% if (currUser) { %>
-          <a class="nav-link" href="/profile">Profile</a>
-          <a class="nav-link" href="/logout">Log out</a>
+      <div class="app-nav-actions ms-auto">
+        <% if(!hasUser) { %>
+          <a class="btn nav-ghost-btn" href="/login">Log in</a>
+          <a class="btn nav-primary-btn" href="/signup">Create account</a>
         <% } %>
 
+        <% if (hasUser) { %>
+          <div class="dropdown profile-nav-dropdown">
+            <button class="btn nav-ghost-btn dropdown-toggle profile-dropdown-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="fa-solid fa-user"></i>
+              Account
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end profile-dropdown-menu">
+              <li><a class="dropdown-item" href="/profile">Dashboard</a></li>
+              <li><a class="dropdown-item" href="/profile/listings">My listings</a></li>
+              <li><a class="dropdown-item" href="/profile/bookings">My bookings</a></li>
+              <li><a class="dropdown-item" href="/profile/reviews">My reviews</a></li>
+              <li><a class="dropdown-item" href="/profile/wishlist">Wishlist</a></li>
+              <li><a class="dropdown-item" href="/profile/settings">Settings</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item text-danger" href="/logout">Log out</a></li>
+            </ul>
+          </div>
+        <% } %>
       </div>
     </div>
   </div>

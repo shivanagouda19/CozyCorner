@@ -1,16 +1,17 @@
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const config = require("./config");
 
 cloudinary.config({
-  cloud_name: process.env.CLOUD_NAME,
-  api_key: process.env.CLOUD_API_KEY,
-  api_secret: process.env.CLOUD_API_SECRET,
+  cloud_name: config.integrations.cloudinary.cloudName,
+  api_key: config.integrations.cloudinary.apiKey,
+  api_secret: config.integrations.cloudinary.apiSecret,
 });
 
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: "wanderlust_DEV",
+    folder: config.app.isProduction ? "wanderlust_prod" : "wanderlust_dev",
     allowed_formats: ["png", "jpg", "jpeg", "webp"],
   },
 });

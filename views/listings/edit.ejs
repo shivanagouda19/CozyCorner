@@ -3,6 +3,7 @@
         <div class="col-8 offset-2">
             <h2>Edit Listing</h2>
             <form method="POST" action="/listings/<%= listing._id %>?_method=PUT" enctype="multipart/form-data" novalidate class="needs-validation">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <div class="mb-3">
                     <label for="title" class="form-label">title</label>
                     <input name="listing[title]" value="<%= listing.title %>" type="text" class="form-control"
@@ -27,20 +28,35 @@
                 </div>
                 <br /><br>
                 <div class="mb-3">
-                    <label for="image" class="form-label">image</label>
-                    <input name="listing[image][url]" value="<%= listing.image.url %>" type="text" class="form-control"/>
-                    <div class="valid-feedback">
-                            Looks good!
-                        </div>
-                        <div class="invalid-feedback">
-                            Please choose a image.
-                        </div>
+                    <label for="listingImages" class="form-label">Add New Images</label>
+                    <input name="listingImages" id="listingImages" type="file" accept="image/*" class="form-control" multiple />
+                    <div class="form-text">You can upload up to 5 images total per listing.</div>
                 </div>
-                <div class="mb-3">
-                    <label for="listingImage" class="form-label">Upload New Image</label>
-                    <input name="listingImage" id="listingImage" type="file" accept="image/*" class="form-control" />
-                    <div class="form-text">If you upload a file, it will replace the current image.</div>
-                </div>
+                <% if (Array.isArray(listing.images) && listing.images.length) { %>
+                    <div class="mb-3">
+                        <label class="form-label">Current Gallery</label>
+                        <div class="row g-2">
+                            <% listing.images.forEach((image, idx) => { %>
+                                <div class="col-12 col-md-6">
+                                    <div class="border rounded p-2">
+                                        <img
+                                            src="<%= image.url %>"
+                                            alt="listing-image-<%= idx %>"
+                                            class="img-fluid rounded mb-2"
+                                            loading="lazy"
+                                        />
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="deleteImages" value="<%= image.filename %>" id="delete-image-<%= idx %>">
+                                            <label class="form-check-label" for="delete-image-<%= idx %>">
+                                                Delete this image
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            <% }) %>
+                        </div>
+                    </div>
+                <% } %>
                 <br /><br>
                 <div class="mb-3">
                     <label for="price" class="form-label">price</label>

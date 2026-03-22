@@ -1,21 +1,150 @@
 <% layout("/layouts/boilerplate.ejs") -%>
-    <body>
-        <h3>All Listings</h3>
-        <div class="row row-cols-lg-3 row-cols-md-2 row-cols-sm-1">
-            <% for(let listing of allListings) { %>
-                <a href="/listings/<%=listing._id%>" class="listing-link">
-                <div class="card col" >
-                    <img src="<%= listing.image.url %>" class="card-img-top" alt="listing_image" style="height: 20rem;" />
-                    <div class="card-img-overlay"></div>
-                    <div class="card-body">
-                        <p class="card-text">
-                            <b><%= listing.title %></b> <br />
-                                &#8377; <%= listing.price ? listing.price.toLocaleString("en-IN") : "Price not set" %> / night
-
-                        </p>
-                    </div>
-                </div>
-                </a>
-                <% } %>
+<section class="listings-page">
+    <header class="listings-page-head">
+        <div>
+            <p class="section-kicker mb-2">Curated stays</p>
+            <h1 class="section-title mb-2">Discover places you'll love</h1>
+            <p class="section-subtitle mb-0">Hand-picked homes and unique stays with premium comfort, local charm, and instant booking confidence.</p>
         </div>
-    </body>
+    </header>
+
+    <section class="listing-filter-shell mb-4">
+        <form class="listing-filter-form" id="listingFilterForm" action="/listings" method="GET">
+            <div class="filter-field filter-field-search">
+                <label for="search" class="form-label mb-1">Search</label>
+                <input
+                    type="text"
+                    id="search"
+                    name="search"
+                    class="form-control"
+                    placeholder="Search by title or location"
+                    value="<%= filters?.search || '' %>"
+                >
+            </div>
+
+            <div class="filter-field">
+                <label for="minPrice" class="form-label mb-1">Min price</label>
+                <input
+                    type="number"
+                    id="minPrice"
+                    name="minPrice"
+                    class="form-control"
+                    min="0"
+                    step="100"
+                    value="<%= Number.isFinite(filters?.minPrice) ? filters.minPrice : 0 %>"
+                >
+            </div>
+
+            <div class="filter-field">
+                <label for="maxPrice" class="form-label mb-1">Max price</label>
+                <input
+                    type="number"
+                    id="maxPrice"
+                    name="maxPrice"
+                    class="form-control"
+                    min="0"
+                    step="100"
+                    value="<%= Number.isFinite(filters?.maxPrice) ? filters.maxPrice : (filterMeta?.maxPriceLimit || 20000) %>"
+                >
+            </div>
+
+            <div class="filter-field">
+                <label for="category" class="form-label mb-1">Category</label>
+                <select id="category" name="category" class="form-select">
+                    <option value="">All categories</option>
+                    <% (filterMeta?.categories || []).forEach((category) => { %>
+                        <option value="<%= category %>" <%= filters?.category === category ? 'selected' : '' %>>
+                            <%= category.charAt(0).toUpperCase() + category.slice(1) %>
+                        </option>
+                    <% }) %>
+                </select>
+            </div>
+
+            <div class="filter-field">
+                <label for="minRating" class="form-label mb-1">Min rating</label>
+                <select id="minRating" name="minRating" class="form-select">
+                    <option value="0" <%= Number(filters?.minRating || 0) === 0 ? 'selected' : '' %>>Any</option>
+                    <option value="3" <%= Number(filters?.minRating || 0) === 3 ? 'selected' : '' %>>3+ stars</option>
+                    <option value="4" <%= Number(filters?.minRating || 0) === 4 ? 'selected' : '' %>>4+ stars</option>
+                    <option value="4.5" <%= Number(filters?.minRating || 0) === 4.5 ? 'selected' : '' %>>4.5+ stars</option>
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="submit" class="btn listing-btn-primary" id="applyFiltersBtn">
+                    <span class="filter-btn-label">Apply filters</span>
+                    <span class="filter-btn-loading d-none">Applying...</span>
+                </button>
+                <a href="/listings" class="btn listing-btn-danger">Reset</a>
+            </div>
+        </form>
+    </section>
+
+    <% if (allListings.length) { %>
+        <div class="listings-grid listings-grid-full">
+            <% for(let listing of allListings) { %>
+                <div class="listing-card-shell">
+                    <% if (currUser && String(currUser._id) !== String(listing.owner)) { %>
+                        <form method="POST" action="/listings/<%= listing._id %>/wishlist" class="wishlist-toggle-form">
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                            <button type="submit" class="wishlist-save-btn <%= listing.isWishlisted ? 'is-saved' : '' %>" aria-label="<%= listing.isWishlisted ? 'Remove from wishlist' : 'Save to wishlist' %>">
+                                <i class="fa-<%= listing.isWishlisted ? 'solid' : 'regular' %> fa-heart"></i>
+                                <span><%= listing.isWishlisted ? 'Saved' : 'Save' %></span>
+                            </button>
+                        </form>
+                    <% } else if (!currUser) { %>
+                        <a href="/login" class="wishlist-save-btn is-guest" aria-label="Log in to save listing">
+                            <i class="fa-regular fa-heart"></i>
+                            <span>Save</span>
+                        </a>
+                    <% } %>
+
+                    <a href="/listings/<%= listing._id %>" class="listing-card-link" aria-label="View <%= listing.title %>">
+                        <article class="listing-card hover-lift index-listing-card" data-listing-id="<%= listing._id %>">
+                            <div class="listing-media media-skeleton">
+                                <img src="<%= listing.image?.url %>" class="listing-card-image js-lazy-media" alt="listing_image" loading="lazy" />
+                            </div>
+
+                            <div class="listing-card-body">
+                                <span class="listing-location-badge">
+                                    <i class="fa-solid fa-location-dot"></i>
+                                    <%= listing.location %>, <%= listing.country %>
+                                </span>
+
+                                <h3 class="listing-card-title"><%= listing.title %></h3>
+
+                                <p class="listing-card-copy">
+                                    <%= listing.description ? listing.description.slice(0, 92) : "Premium stay with thoughtfully designed comfort and seamless host experience." %><%= listing.description && listing.description.length > 92 ? "..." : "" %>
+                                </p>
+
+                                <div class="listing-card-price-row mb-2">
+                                    <p class="listing-card-price mb-0">
+                                        &#8377; <%= listing.price ? listing.price.toLocaleString("en-IN") : "Price not set" %>
+                                    </p>
+                                    <span class="listing-card-per-night">per night</span>
+                                </div>
+
+                                <div class="listing-card-meta-row">
+                                    <span class="listing-category-chip"><%= listing.category || "apartment" %></span>
+                                    <span class="listing-rating-chip">
+                                        <i class="fa-solid fa-star"></i>
+                                        <%= Number(listing.avgRating || 0).toFixed(1) %> (<%= listing.reviewsCount || 0 %>)
+                                    </span>
+                                </div>
+                            </div>
+                        </article>
+                    </a>
+                </div>
+            <% } %>
+        </div>
+    <% } else { %>
+        <article class="listings-empty-state trust-empty-state">
+            <p class="section-kicker mb-2">No exact match yet</p>
+            <h3>No listings found</h3>
+            <p>Try widening your filters. New trusted stays are added regularly by verified hosts.</p>
+            <a href="/listings" class="btn listing-btn-primary">Reset filters</a>
+        </article>
+    <% } %>
+</section>
+
+<script src="/js/listings/filterForm.js"></script>

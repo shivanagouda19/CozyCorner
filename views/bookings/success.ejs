@@ -1,0 +1,54 @@
+<% layout("/layouts/boilerplate.ejs") -%>
+
+<%
+  const formatDate = (value) => {
+    if (!value) return "N/A";
+    return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+%>
+
+<section class="listings-page">
+  <header class="listings-page-head">
+    <p class="section-kicker mb-2">Booking placed</p>
+    <h1 class="section-title mb-2">Your trip request is in progress</h1>
+    <p class="section-subtitle mb-0">We saved your reservation details and notified the host.</p>
+  </header>
+
+  <article class="show-section booking-success-shell">
+    <div class="d-flex justify-content-between flex-wrap gap-3 align-items-start">
+      <div>
+        <h4 class="mb-2"><%= booking.listing?.title || "Listing" %></h4>
+        <p class="mb-1"><i class="fa-solid fa-location-dot"></i> <%= booking.listing?.location || "" %><%= booking.listing?.country ? `, ${booking.listing.country}` : "" %></p>
+        <p class="mb-1"><strong>Dates:</strong> <%= formatDate(booking.checkIn) %> - <%= formatDate(booking.checkOut) %></p>
+        <p class="mb-1"><strong>Guests:</strong> <%= booking.guestsCount %></p>
+        <p class="mb-0"><strong>Status:</strong> <span class="booking-status-badge pending"><%= booking.status %></span></p>
+      </div>
+
+      <div class="text-end">
+        <p class="mb-1"><strong>Subtotal:</strong> INR <%= (booking.nightlyRate * booking.nights).toLocaleString("en-IN") %></p>
+        <p class="mb-1"><strong>Service fee:</strong> INR <%= booking.serviceFee.toLocaleString("en-IN") %></p>
+        <p class="booking-total mb-0"><strong>Total:</strong> INR <%= booking.totalPrice.toLocaleString("en-IN") %></p>
+      </div>
+    </div>
+
+    <div class="mt-4 d-flex flex-wrap gap-2">
+      <a href="/bookings/my" class="btn listing-btn-primary">Go to My Trips</a>
+      <a href="/listings/<%= booking.listing?._id %>" class="btn listing-btn-danger">Back to listing</a>
+    </div>
+
+    <div class="mt-3">
+      <p class="mb-2" id="booking-success-redirect-note">Redirecting to My Trips in 6 seconds...</p>
+      <div class="booking-success-progress" aria-hidden="true"><span></span></div>
+    </div>
+  </article>
+</section>
+
+<script>
+  (() => {
+    const redirectUrl = "/bookings/my";
+    const delayMs = 6000;
+    window.setTimeout(() => {
+      window.location.assign(redirectUrl);
+    }, delayMs);
+  })();
+</script>

@@ -1,28 +1,34 @@
-<% if (success && success.length) { %>
+<%
+    const safeSuccess = typeof success !== "undefined" ? success : [];
+    const safeError = typeof error !== "undefined" ? error : [];
+    const safeErr = typeof err !== "undefined" ? err : [];
+%>
+
+<% if (safeSuccess && safeSuccess.length) { %>
     <div class="custom-flash alert alert-success alert-dismissible fade show" role="alert">
         <div class="flash-body">
             <i class="fa-solid fa-circle-check flash-icon" aria-hidden="true"></i>
-            <span><%= success[0] %></span>
+            <span><%= safeSuccess[0] %></span>
         </div>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 <% } %>
 
-<% if (error && error.length) { %>
+<% if (safeError && safeError.length) { %>
     <div class="custom-flash alert alert-danger alert-dismissible fade show" role="alert">
         <div class="flash-body">
             <i class="fa-solid fa-triangle-exclamation flash-icon" aria-hidden="true"></i>
-            <span><%= error[0] %></span>
+            <span><%= safeError[0] %></span>
         </div>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 <% } %>
 
-<% if (err && err.length) { %>
+<% if (safeErr && safeErr.length) { %>
     <div class="custom-flash alert alert-danger alert-dismissible fade show" role="alert">
         <div class="flash-body">
             <i class="fa-solid fa-triangle-exclamation flash-icon" aria-hidden="true"></i>
-            <span><%= err[0] %></span>
+            <span><%= safeErr[0] %></span>
         </div>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>

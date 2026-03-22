@@ -1,0 +1,52 @@
+<% layout("/layouts/boilerplate.ejs") -%>
+<link rel="stylesheet" href="/css/profile.css">
+
+<%
+  const analytics = profileData?.analytics || {};
+  const mostBooked = analytics.mostBookedListing;
+%>
+
+<section class="profile-shell">
+  <div class="profile-grid mt-2">
+    <%- include("./includes/sidebar.ejs", { activeRoute }) %>
+
+    <main class="profile-main">
+      <section class="card-section reveal-up" data-stagger="2">
+        <div class="section-head">
+          <h2>Host analytics dashboard</h2>
+        </div>
+
+        <div class="stats-tiles-grid">
+          <article class="stat-tile">
+            <h6>Total revenue</h6>
+            <p>INR <%= Number(analytics.totalRevenue || 0).toLocaleString("en-IN") %></p>
+          </article>
+
+          <article class="stat-tile">
+            <h6>Occupancy rate</h6>
+            <p><%= Number(analytics.occupancyRate || 0).toFixed(2) %></p>
+          </article>
+
+          <article class="stat-tile">
+            <h6>Average rating</h6>
+            <p><%= Number(analytics.avgRating || 0).toFixed(2) %></p>
+          </article>
+        </div>
+
+        <div class="info-card info-card-wide mt-3">
+          <h6>Most booked listing</h6>
+          <% if (mostBooked) { %>
+            <p>
+              <strong><%= mostBooked.title %></strong>
+              · <%= Number(mostBooked.bookingCount || 0) %> booking(s)
+            </p>
+          <% } else { %>
+            <p>No bookings found for your listings yet.</p>
+          <% } %>
+        </div>
+      </section>
+    </main>
+  </div>
+</section>
+
+<script src="/js/profile.js"></script>

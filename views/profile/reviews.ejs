@@ -1,0 +1,57 @@
+<% layout("/layouts/boilerplate.ejs") -%>
+<link rel="stylesheet" href="/css/profile.css">
+
+<%
+  const user = profileData?.user || {};
+  const reviewsGiven = profileData?.reviewsGiven || [];
+  const reviewsReceived = profileData?.reviewsReceived || [];
+  const stats = profileData?.stats || { averageRating: 0, reviewsReceivedCount: 0 };
+  const fullName = user.fullName || user.username || "Member";
+%>
+
+<section class="profile-shell">
+  <div class="profile-grid mt-2">
+    <%- include("./includes/sidebar.ejs", { activeRoute }) %>
+
+    <main class="profile-main">
+      <section class="card-section reveal-up" data-stagger="2">
+        <div class="section-head">
+          <h2><%= fullName %>'s reviews</h2>
+          <span class="rating-chip">Avg <%= Number(stats.averageRating || 0).toFixed(2) %> · <%= stats.reviewsReceivedCount || 0 %> received</span>
+        </div>
+
+        <div class="reviews-columns">
+          <div>
+            <h6>Reviews given</h6>
+            <% if (reviewsGiven.length) { %>
+              <% reviewsGiven.forEach((review) => { %>
+                <article class="review-item">
+                  <p class="review-title">"<%= review.comment %>"</p>
+                  <small><%= review.rating %> stars</small>
+                </article>
+              <% }) %>
+            <% } else { %>
+              <article class="empty-block">No reviews given yet.</article>
+            <% } %>
+          </div>
+
+          <div>
+            <h6>Reviews received</h6>
+            <% if (reviewsReceived.length) { %>
+              <% reviewsReceived.forEach((review) => { %>
+                <article class="review-item">
+                  <p class="review-title">"<%= review.comment %>"</p>
+                  <small>from <%= review.authorName %> · <%= review.rating %> stars · <%= review.listingTitle %></small>
+                </article>
+              <% }) %>
+            <% } else { %>
+              <article class="empty-block">No reviews received yet.</article>
+            <% } %>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</section>
+
+<script src="/js/profile.js"></script>

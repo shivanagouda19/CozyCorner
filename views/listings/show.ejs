@@ -1,134 +1,387 @@
 <% layout("/layouts/boilerplate.ejs") -%>
-<div class="row mt-3">
-    <div class="col-8 offset-2">
-        <div class="col-8 offset-2">
-            <h3>Listing Details :</h3>
+<%
+    const owner = listing?.owner || {};
+    const listingImages = Array.isArray(listing?.images) && listing.images.length
+        ? listing.images
+        : [listing?.image || { url: "https://images.unsplash.com/photo-1468824357306-a439d58ccb1c", filename: "default-listing-image" }];
+    const reviewsTotal = Array.isArray(listing?.reviews) ? listing.reviews.length : 0;
+    const hostSince = owner?.createdAt
+        ? new Date(owner.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+        : "Long-standing member";
+    const hostDisplayName = owner?.fullName || owner?.username || "Trusted host";
+    const hostListingsCount = Number.isFinite(owner?.listingsCount)
+        ? owner.listingsCount
+        : "several";
+    const computedAvgRating = reviewsTotal
+        ? (listing.reviews.reduce((sum, review) => sum + Number(review?.rating || 0), 0) / reviewsTotal)
+        : 0;
+%>
+<section class="listing-show-shell">
+    <header class="listing-show-head">
+        <div>
+            <p class="section-kicker mb-2">Listing details</p>
+            <h1 class="section-title mb-2"><%= listing.title %></h1>
+            <p class="listing-meta-line mb-0">
+                <i class="fa-solid fa-location-dot"></i>
+                <%= listing.location %>, <%= listing.country %>
+            </p>
         </div>
-        <div class="card col-6 offset-2">
-            <img src="<%= listing.image.url%>" class="card-img-top show-img" alt="listing_image">
-            <div class="card-body">
-                <p class="card-text">
-                    <b>
-                        <%= listing.title %>
-                    </b> <br />
-                    <%= listing.description %> <br />
-                        &#8377;<%= listing.price ? listing.price.toLocaleString("en-IN") : "Price not set" %><br />
-                            <%= listing.location %> <br />
-                                <%= listing.country %>
-                </p>
-            </div>
-        </div>
-        <% if(currUser && currUser._id.equals(listing.owner._id)) { %>
-            <div class="btns">
-                <a href="/listings/<%=listing.id%>/edit" class="btn btn-dark col-1 offset-2 add-btn">Edit</a>
-                <br>
-                <form method="post" action="/listings/<%= listing._id%>?_method=DELETE">
-                    <button class="btn btn-dark offset-4">Delete</button>
+
+        <div class="listing-show-head-actions">
+            <% if (currUser && !currUser._id.equals(listing.owner._id)) { %>
+                <form method="POST" action="/listings/<%= listing._id %>/wishlist" class="wishlist-toggle-form">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="wishlist-save-btn wishlist-save-btn-inline <%= isWishlisted ? 'is-saved' : '' %>">
+                        <i class="fa-<%= isWishlisted ? 'solid' : 'regular' %> fa-heart"></i>
+                        <span><%= isWishlisted ? 'Saved' : 'Save' %></span>
+                    </button>
                 </form>
+            <% } %>
+
+            <div class="listing-show-price">
+                &#8377;<%= listing.price ? listing.price.toLocaleString("en-IN") : "Price not set" %>
+                <span>per night</span>
             </div>
-            <% } %>
+        </div>
+    </header>
 
-            <% if (listing.geometry && listing.geometry.coordinates && listing.geometry.coordinates.length === 2) { %>
-                <hr>
-                <h4 class="col-8 offset-2">Location on Map</h4>
-                <div
-                    id="map"
-                    class="col-8 offset-2"
-                    data-map-data='<%- JSON.stringify({
-                        mapToken,
-                        coordinates: listing.geometry.coordinates,
-                        title: listing.title,
-                        location: listing.location,
-                        country: listing.country,
-                        price: listing.price
-                    }) %>'
-                ></div>
-                <link href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" rel="stylesheet">
-                <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
-                <script src="/js/listingMap.js"></script>
-            <% } %>
+    <article class="listing-hero-card">
+        <div class="listing-hero-media media-skeleton">
+            <% if (listingImages.length > 1) { %>
+                <div id="listingImageCarousel" class="carousel slide" data-bs-ride="carousel">
+                    <div class="carousel-indicators">
+                        <% listingImages.forEach((_, idx) => { %>
+                            <button
+                                type="button"
+                                data-bs-target="#listingImageCarousel"
+                                data-bs-slide-to="<%= idx %>"
+                                class="<%= idx === 0 ? 'active' : '' %>"
+                                aria-current="<%= idx === 0 ? 'true' : 'false' %>"
+                                aria-label="Slide <%= idx + 1 %>"
+                            ></button>
+                        <% }) %>
+                    </div>
 
-                <% if (nearbyListings && nearbyListings.length) { %>
-                    <hr>
-                    <h4>Nearby stays within 5 km</h4>
-                    <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
-                        <% nearbyListings.forEach((nearby) => { %>
-                            <div class="col">
-                                <a class="text-decoration-none text-dark" href="/listings/<%= nearby._id %>">
-                                    <div class="card h-100 nearby-card">
-                                        <img src="<%= nearby.image?.url %>" class="card-img-top" alt="nearby_listing_image" style="height: 12rem;">
-                                        <div class="card-body">
-                                            <h6 class="card-title mb-1"><%= nearby.title %></h6>
-                                            <p class="card-text mb-1"><%= nearby.location %>, <%= nearby.country %></p>
-                                            <p class="card-text mb-0">&#8377;<%= nearby.price ? nearby.price.toLocaleString("en-IN") : "Price not set" %> / night</p>
-                                        </div>
-                                    </div>
-                                </a>
+                    <div class="carousel-inner">
+                        <% listingImages.forEach((image, idx) => { %>
+                            <div class="carousel-item <%= idx === 0 ? 'active' : '' %>">
+                                <img
+                                    src="<%= image.url %>"
+                                    class="d-block w-100 listing-hero-image js-lazy-media"
+                                    alt="listing_image_<%= idx + 1 %>"
+                                    width="1200"
+                                    height="800"
+                                    loading="lazy"
+                                >
                             </div>
                         <% }) %>
                     </div>
-                <% } %>
 
-                <hr>
-                <% if(currUser) { %>
-                    <h4>Leave a Review</h4>
-                    <form method="POST" action="/listings/<%= listing._id %>/reviews" novalidate
-                        class="needs-validation">
-                        <label class="form-label">Rating (1-5)</label>
-                        <fieldset class="starability-slot">
-                            <legend>Rating:</legend>
-                            <input type="radio" id="first-rate1" name="review[rating]" value="1" required />
-                            <label for="first-rate1" title="Terrible">1 star</label>
-                            <input type="radio" id="first-rate2" name="review[rating]" value="2" />
-                            <label for="first-rate2" title="Not good">2 stars</label>
-                            <input type="radio" id="first-rate3" name="review[rating]" value="3" checked />
-                            <label for="first-rate3" title="Average">3 stars</label>
-                            <input type="radio" id="first-rate4" name="review[rating]" value="4" />
-                            <label for="first-rate4" title="Very good">4 stars</label>
-                            <input type="radio" id="first-rate5" name="review[rating]" value="5" />
-                            <label for="first-rate5" title="Amazing">5 stars</label>
-                        </fieldset>
-                        <div class="mb-3 col-8">
-                            <label for="comment" class="form-label">Comment</label>
-                            <textarea name="review[comment]" id="comment" cols="30" rows="4" class="form-control"
-                                required></textarea>
-                            <div class="valid-feedback">
-                                Looks good!
+                    <button class="carousel-control-prev" type="button" data-bs-target="#listingImageCarousel" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Previous</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#listingImageCarousel" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Next</span>
+                    </button>
+                </div>
+            <% } else { %>
+                <img
+                    src="<%= listingImages[0]?.url || 'https://images.unsplash.com/photo-1468824357306-a439d58ccb1c' %>"
+                    class="listing-hero-image js-lazy-media"
+                    alt="listing_image"
+                    width="1200"
+                    height="800"
+                    loading="lazy"
+                >
+            <% } %>
+        </div>
+
+        <div class="listing-hero-content">
+            <h3>About this stay</h3>
+            <p class="listing-description"><%= listing.description %></p>
+
+            <% if(currUser && currUser._id.equals(listing.owner._id)) { %>
+            <div class="listing-owner-actions">
+                <a href="/listings/<%= listing.id %>/edit" class="btn listing-btn-primary">Edit listing</a>
+                <form method="post" action="/listings/<%= listing._id %>?_method=DELETE">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button class="btn listing-btn-danger">Delete listing</button>
+                </form>
+            </div>
+            <% } %>
+        </div>
+    </article>
+
+    <section class="show-section listing-trust-section">
+        <div class="listing-trust-grid">
+            <article class="host-credibility-card">
+                <p class="section-kicker mb-2">Host credibility</p>
+                <h4 class="mb-2">Hosted by <%= hostDisplayName %></h4>
+                <p class="mb-2">Member since <strong><%= hostSince %></strong></p>
+                <p class="mb-2">
+                    <strong><%= hostListingsCount %></strong> hosted listing<%= hostListingsCount === 1 ? '' : 's' %>
+                    and <strong><%= reviewsTotal %></strong> guest review<%= reviewsTotal === 1 ? '' : 's' %>.
+                </p>
+                <p class="mb-0 host-trust-note">Hosts with complete profiles and responsive communication tend to deliver smoother stays.</p>
+            </article>
+
+            <article class="host-credibility-card">
+                <p class="section-kicker mb-2">Guest confidence</p>
+                <p class="mb-2">
+                    <span class="trust-inline-pill success"><i class="fa-solid fa-shield-halved"></i> Verified account checks</span>
+                </p>
+                <p class="mb-2">
+                    <span class="trust-inline-pill neutral"><i class="fa-solid fa-star"></i> <%= computedAvgRating.toFixed(1) %> average rating</span>
+                </p>
+                <p class="mb-0">
+                    <span class="trust-inline-pill neutral"><i class="fa-solid fa-comments"></i> Responsive support available</span>
+                </p>
+            </article>
+        </div>
+    </section>
+
+    <section class="show-section booking-section">
+        <div class="booking-card-shell">
+            <div class="section-headline-wrap d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div>
+                    <h4>Reserve this stay</h4>
+                    <p class="mb-0">Select your dates, review the price breakdown, and reserve in seconds.</p>
+                </div>
+                <div class="booking-rate-chip">
+                    &#8377;<%= listing.price ? listing.price.toLocaleString("en-IN") : "Price not set" %> / night
+                </div>
+            </div>
+            <div class="booking-trust-strip mt-3" aria-label="Booking trust highlights">
+                <span class="booking-trust-pill"><i class="fa-solid fa-lock"></i> Secure checkout</span>
+                <span class="booking-trust-pill"><i class="fa-solid fa-user-check"></i> Verified host profile</span>
+                <span class="booking-trust-pill"><i class="fa-solid fa-headset"></i> Support when you need it</span>
+            </div>
+
+            <% if (currUser && currUser._id.equals(listing.owner._id)) { %>
+                <p class="booking-message-muted mt-3 mb-0">You are the host of this listing. Guest booking is disabled for owners.</p>
+            <% } else if (!listing.price || listing.price <= 0) { %>
+                <p class="booking-message-muted mt-3 mb-0">Booking is unavailable because nightly price is not configured.</p>
+            <% } else { %>
+                <form
+                    method="POST"
+                    action="/listings/<%= listing._id %>/bookings"
+                    class="booking-form-grid mt-3"
+                    id="bookingForm"
+                    data-listing-id="<%= listing._id %>"
+                    data-availability-url="/listings/<%= listing._id %>/bookings/availability"
+                >
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+                    <div class="booking-field-wrap">
+                        <label for="booking-check-in" class="form-label">Check-in</label>
+                        <input id="booking-check-in" name="booking[checkIn]" type="date" class="form-control" required>
+                    </div>
+
+                    <div class="booking-field-wrap">
+                        <label for="booking-check-out" class="form-label">Check-out</label>
+                        <input id="booking-check-out" name="booking[checkOut]" type="date" class="form-control" required>
+                    </div>
+
+                    <div class="booking-field-wrap">
+                        <label for="booking-guests-count" class="form-label">Guests</label>
+                        <input id="booking-guests-count" name="booking[guestsCount]" type="number" min="1" max="16" value="1" class="form-control" required>
+                    </div>
+
+                    <div class="booking-estimate-card" data-nightly-rate="<%= listing.price || 0 %>" data-service-fee-rate="0.12">
+                        <p class="booking-estimate-row mb-1">
+                            <span>Nightly rate</span>
+                            <strong id="booking-nightly-rate">INR <%= (listing.price || 0).toLocaleString("en-IN") %></strong>
+                        </p>
+                        <p class="booking-estimate-row mb-1">
+                            <span>Subtotal</span>
+                            <strong id="booking-subtotal">INR 0</strong>
+                        </p>
+                        <p class="booking-estimate-row mb-1">
+                            <span>Service fee</span>
+                            <strong id="booking-service-fee">INR 0</strong>
+                        </p>
+                        <p class="booking-estimate-row total mb-0">
+                            <span>Total</span>
+                            <strong id="booking-total">INR 0</strong>
+                        </p>
+                        <small class="booking-estimate-meta" id="booking-nights-text">Select dates to calculate total.</small>
+                        <small class="booking-estimate-meta d-block mt-2" id="booking-unavailable-note">Checking availability...</small>
+                        <div class="booking-unavailable-list" id="booking-unavailable-list" aria-live="polite"></div>
+                    </div>
+
+                    <div class="booking-summary-card" id="booking-summary-card">
+                        <h6 class="mb-2">Booking summary</h6>
+                        <p class="mb-1" id="booking-summary-dates">Dates: -</p>
+                        <p class="mb-1" id="booking-summary-guests">Guests: 1</p>
+                        <p class="mb-0" id="booking-summary-total">Total: INR 0</p>
+                    </div>
+
+                    <button class="btn booking-cta-btn booking-submit-btn" id="booking-submit-btn" type="submit">
+                        <span class="booking-cta-label">Reserve</span>
+                        <span class="booking-cta-loading d-none">Reserving...</span>
+                    </button>
+                    <small class="booking-estimate-meta mt-1">You will be asked to confirm before final submission. Your details stay encrypted during checkout.</small>
+                    <div class="booking-policy-placeholder mt-2">
+                        <h6 class="mb-1">Cancellation policy</h6>
+                        <p class="mb-0">Free cancellation for 24 hours after booking, then policy rules may apply. Final terms are shown before confirmation.</p>
+                    </div>
+                </form>
+            <% } %>
+        </div>
+    </section>
+
+    <div class="booking-confirm-modal" id="bookingConfirmModal" aria-hidden="true" role="dialog" aria-labelledby="booking-confirm-title">
+        <div class="booking-confirm-modal-backdrop" data-booking-modal-close="true"></div>
+        <div class="booking-confirm-modal-card" role="document">
+            <h5 id="booking-confirm-title" class="mb-2">Confirm your reservation</h5>
+            <p class="mb-3">Review your dates and total before placing your booking request.</p>
+            <div class="booking-confirm-rows">
+                <p class="mb-1" id="booking-modal-dates">Dates: -</p>
+                <p class="mb-1" id="booking-modal-guests">Guests: 1</p>
+                <p class="mb-0" id="booking-modal-total">Total: INR 0</p>
+            </div>
+            <div class="booking-confirm-actions mt-3">
+                <button type="button" class="btn listing-btn-danger" data-booking-modal-close="true">Back</button>
+                <button type="button" class="btn booking-cta-btn" id="booking-confirm-action">
+                    <span class="booking-cta-label">Confirm & reserve</span>
+                    <span class="booking-cta-loading d-none">Submitting...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <% if (listing.geometry && listing.geometry.coordinates && listing.geometry.coordinates.length === 2) { %>
+        <section class="show-section">
+            <h4>Location on map</h4>
+            <div
+                id="map"
+                data-listing-id="<%= listing._id %>"
+                data-map-data='<%- JSON.stringify({
+                    mapToken,
+                    coordinates: listing.geometry.coordinates,
+                    title: listing.title,
+                    location: listing.location,
+                    country: listing.country,
+                    price: listing.price,
+                    imageUrl: listing.image?.url
+                }) %>'
+            ></div>
+        </section>
+    <% } %>
+
+    <% if (nearbyListings && nearbyListings.length) { %>
+        <section class="show-section">
+            <div class="section-headline-wrap">
+                <h4>Nearby stays within 5 km</h4>
+            </div>
+            <div class="nearby-grid">
+                <% nearbyListings.forEach((nearby) => { %>
+                    <a class="nearby-link" href="/listings/<%= nearby._id %>">
+                        <article
+                            class="nearby-card hover-lift nearby-map-trigger"
+                            data-nearby-map='<%- JSON.stringify({
+                                coordinates: nearby.geometry?.coordinates,
+                                title: nearby.title,
+                                location: nearby.location,
+                                country: nearby.country,
+                                price: nearby.price,
+                                imageUrl: nearby.image?.url,
+                                id: nearby._id
+                            }) %>'
+                        >
+                            <div class="nearby-media media-skeleton">
+                                <img src="<%= nearby.image?.url %>" class="nearby-image js-lazy-media" alt="nearby_listing_image" loading="lazy">
                             </div>
-                            <div class="invalid-feedback">
-                                Please enter your comment.
+                            <div class="nearby-body">
+                                <h6><%= nearby.title %></h6>
+                                <p><%= nearby.location %>, <%= nearby.country %></p>
+                                <strong>&#8377;<%= nearby.price ? nearby.price.toLocaleString("en-IN") : "Price not set" %> / night</strong>
+                            </div>
+                        </article>
+                    </a>
+                <% }) %>
+            </div>
+        </section>
+    <% } %>
+
+    <section class="show-section reviews-section">
+        <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+            <div>
+                <h4 class="mb-1">Reviews</h4>
+                <p class="mb-0 review-count-note"><strong><%= reviewsTotal %></strong> review<%= reviewsTotal === 1 ? '' : 's' %> from verified stays</p>
+            </div>
+            <div class="review-rating-emphasis" aria-label="Listing rating summary">
+                <i class="fa-solid fa-star"></i>
+                <strong><%= computedAvgRating.toFixed(1) %></strong>
+                <span>average</span>
+            </div>
+        </div>
+
+        <% if(currUser) { %>
+            <article class="review-form-card">
+                <h5 class="mb-3">Leave a review</h5>
+                <form method="POST" action="/listings/<%= listing._id %>/reviews" novalidate class="needs-validation">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <label class="form-label">Rating (1-5)</label>
+                    <fieldset class="starability-slot">
+                        <legend>Rating:</legend>
+                        <input type="radio" id="first-rate1" name="review[rating]" value="1" required />
+                        <label for="first-rate1" title="Terrible">1 star</label>
+                        <input type="radio" id="first-rate2" name="review[rating]" value="2" />
+                        <label for="first-rate2" title="Not good">2 stars</label>
+                        <input type="radio" id="first-rate3" name="review[rating]" value="3" checked />
+                        <label for="first-rate3" title="Average">3 stars</label>
+                        <input type="radio" id="first-rate4" name="review[rating]" value="4" />
+                        <label for="first-rate4" title="Very good">4 stars</label>
+                        <input type="radio" id="first-rate5" name="review[rating]" value="5" />
+                        <label for="first-rate5" title="Amazing">5 stars</label>
+                    </fieldset>
+
+                    <div class="mb-3">
+                        <label for="comment" class="form-label">Comment</label>
+                        <textarea name="review[comment]" id="comment" cols="30" rows="4" class="form-control" required></textarea>
+                        <div class="valid-feedback">Looks good!</div>
+                        <div class="invalid-feedback">Please enter your comment.</div>
+                    </div>
+
+                    <button class="btn listing-btn-primary">Publish review</button>
+                </form>
+            </article>
+        <% } %>
+
+        <div class="reviews-grid">
+            <% if (listing.reviews.length) { %>
+                <% for (let review of listing.reviews) { %>
+                    <article class="review-card">
+                        <div class="review-head">
+                            <div>
+                                <p class="review-author mb-1"><%= review.author ? review.author.username : "Unknown user" %></p>
+                                <span class="review-verified-pill"><i class="fa-solid fa-circle-check"></i> Verified booking</span>
+                            </div>
+                            <div class="text-end">
+                                <p class="starability-result card-text mb-0" data-rating="<%= review.rating %>"></p>
+                                <small class="review-rating-note"><%= Number(review.rating || 0).toFixed(1) %> / 5</small>
                             </div>
                         </div>
-                        <button class="btn btn-dark mb-3">Add Review</button>
-                    </form>
-                    <% } %>
-                        <h4>All Reviews</h4>
-                        <% if (listing.reviews.length) { %>
-                            <% for (let review of listing.reviews) { %>
-                                <div class="card mb-3 col-8">
-                                    <div class="card-body">
-                                        <p class="card-text"><b>
-                                                <%= review.author ? review.author.username : "Unknown user" %>
-                                            </b> </p>
-                                        
-                                        <p class="starability-result card-text" data-rating="<%= review.rating %>">
-                                            
-                                        </p>
-                                        <p class="card-text">
-                                            <%= review.comment %>
-                                        </p>
-                                        <% if(currUser && review.author && currUser._id.equals(review.author._id)) { %>
-                                            <form method="POST"
-                                                action="/listings/<%= listing._id %>/reviews/<%= review._id %>?_method=DELETE">
-                                                <button class="btn btn-sm btn-dark">Delete Review</button>
-                                            </form>
-                                        <% } %>
-                                    </div>
-                                </div>
-                                <% } %>
-                                    <% } else { %>
-                                        <p>No reviews yet.</p>
-                                        <% } %>
-                                            <br><br>
-    </div>
-</div>
+                        <p class="review-copy mb-0"><%= review.comment %></p>
+
+                        <% if(currUser && review.author && currUser._id.equals(review.author._id)) { %>
+                            <form method="POST" action="/listings/<%= listing._id %>/reviews/<%= review._id %>?_method=DELETE" class="mt-3">
+                                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                                <button class="btn btn-sm listing-btn-danger">Delete review</button>
+                            </form>
+                        <% } %>
+                    </article>
+                <% } %>
+            <% } else { %>
+                <article class="empty-review-card">No reviews yet. Be the first to share your stay experience.</article>
+            <% } %>
+        </div>
+    </section>
+</section>
+
+<script src="/js/map/core.js"></script>
+<script src="/js/map/showMap.js"></script>
+<script src="/js/booking.js"></script>

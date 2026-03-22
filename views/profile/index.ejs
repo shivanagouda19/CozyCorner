@@ -2,308 +2,79 @@
 <link rel="stylesheet" href="/css/profile.css">
 
 <%
-  const user = (profileData && profileData.user) ? profileData.user : {};
-  const bookings = (profileData && profileData.bookings) ? profileData.bookings : { upcoming: [], past: [], cancelled: [] };
-  const hostListings = (profileData && profileData.hostListings) ? profileData.hostListings : [];
-  const wishlistCollections = (profileData && profileData.wishlistCollections) ? profileData.wishlistCollections : [];
-  const reviewsGiven = (profileData && profileData.reviewsGiven) ? profileData.reviewsGiven : [];
-  const reviewsReceived = (profileData && profileData.reviewsReceived) ? profileData.reviewsReceived : [];
-  const stats = (profileData && profileData.stats) ? profileData.stats : { averageRating: 0 };
-
+  const user = profileData?.user || {};
+  const stats = profileData?.stats || { listingCount: 0, reviewsReceivedCount: 0, upcomingCount: 0 };
   const fullName = user.fullName || user.username || "Guest";
   const memberSince = user.createdAt ? new Date(user.createdAt).toLocaleString("en-US", { month: "long", year: "numeric" }) : "Unknown";
-  const avatarUrl = user.avatar && user.avatar.url
-    ? user.avatar.url
-    : "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=300&fit=crop";
-  const languagesText = Array.isArray(user.languages) && user.languages.length
-    ? user.languages.join(", ")
+  const avatarUrl = user.avatar?.url || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=300&fit=crop";
+  const profile = user.profile || { bio: "", location: "", languages: [] };
+  const languagesText = Array.isArray(profile.languages) && profile.languages.length
+    ? profile.languages.join(", ")
     : "No languages added";
-  const profileCompleteness = typeof user.profileCompleteness === "number" ? user.profileCompleteness : 0;
-
-  const statusClassMap = {
-    active: "active",
-    booked: "booked",
-    draft: "draft",
-  };
-
-  const formatBookingRange = (checkIn, checkOut) => {
-    if (!checkIn || !checkOut) return "Dates unavailable";
-    const start = new Date(checkIn).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const end = new Date(checkOut).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    return `${start} - ${end}`;
-  };
 %>
 
 <section class="profile-shell">
-  <div class="profile-hero reveal-up">
-    <div>
-      <p class="hero-kicker mb-1">Account Hub</p>
-      <h1 class="hero-title mb-2">Your Airbnb Profile</h1>
-      <p class="hero-subtitle mb-0">Manage your host and traveler identity, trust, and account controls from one dashboard.</p>
-    </div>
-    <div class="completeness-card">
-      <div class="d-flex justify-content-between align-items-center">
-        <span class="label">Profile Completeness</span>
-        <span class="value"><%= profileCompleteness %>%</span>
-      </div>
-      <div class="progress profile-progress mt-2" role="progressbar" aria-label="Profile completeness" aria-valuenow="<%= profileCompleteness %>" aria-valuemin="0" aria-valuemax="100">
-        <div class="progress-bar profile-progress-bar" data-progress="<%= profileCompleteness %>"></div>
-      </div>
-      <small class="muted">Complete identity checks to unlock higher booking trust.</small>
-    </div>
-  </div>
-
-  <div class="profile-grid">
-    <aside class="profile-sidebar reveal-up" data-stagger="1">
-      <div class="sidebar-header">
-        <p class="mb-1 sidebar-label">Navigation</p>
-        <button class="btn btn-sm btn-outline-secondary d-lg-none" id="sidebarToggle" type="button">Toggle</button>
-      </div>
-      <nav class="sidebar-nav" id="sidebarNav">
-        <a href="#profile-info" class="sidebar-link is-active">Profile</a>
-        <a href="#listings-preview" class="sidebar-link">Listings</a>
-        <a href="#bookings-preview" class="sidebar-link">Bookings</a>
-        <a href="#wishlist-preview" class="sidebar-link">Wishlist</a>
-        <a href="#reviews-preview" class="sidebar-link">Reviews</a>
-        <a href="#account-settings" class="sidebar-link">Account Settings</a>
-      </nav>
-    </aside>
+  <div class="profile-grid mt-2">
+    <%- include("./includes/sidebar.ejs", { activeRoute }) %>
 
     <main class="profile-main">
-      <section id="profile-info" class="card-section reveal-up" data-stagger="2">
+      <section class="card-section reveal-up" data-stagger="2">
         <div class="section-head">
-          <h2>Profile Card</h2>
-          <% if (user.badges && user.badges.superhost) { %>
-            <span class="section-chip">Superhost</span>
-          <% } else { %>
-            <span class="section-chip subtle">Member</span>
-          <% } %>
+          <h2>Dashboard summary</h2>
+          <a href="/profile/edit" class="text-link">Edit profile</a>
         </div>
-        <div class="profile-card-wrap">
-          <div class="profile-card-left">
+
+        <div class="overview-top-grid">
+          <article class="profile-card-left overview-identity-card">
             <img class="avatar" src="<%= avatarUrl %>" alt="Profile avatar">
             <h3 class="mt-3 mb-1"><%= fullName %></h3>
             <p class="text-muted mb-2">Member since <%= memberSince %></p>
-            <div class="badge-row">
-              <span class="trust-badge <%= user.verification && user.verification.emailVerified ? 'verified' : 'pending' %>">
-                Email <%= user.verification && user.verification.emailVerified ? 'Verified' : 'Unverified' %>
-              </span>
-              <span class="trust-badge <%= user.verification && user.verification.phoneVerified ? 'verified' : 'pending' %>">
-                Phone <%= user.verification && user.verification.phoneVerified ? 'Verified' : 'Unverified' %>
-              </span>
-              <span class="trust-badge pending">Government ID Placeholder</span>
-            </div>
-          </div>
-          <div class="profile-card-right">
-            <div class="info-grid">
-              <article>
-                <h6>Full Name</h6>
-                <p><%= fullName %></p>
+          </article>
+
+          <article class="summary-stats-card">
+            <h4 class="mb-3">Quick stats</h4>
+            <div class="stats-tiles-grid">
+              <article class="stat-tile">
+                <h6>Listings</h6>
+                <p><%= stats.listingCount || 0 %></p>
               </article>
-              <article>
-                <h6>Location</h6>
-                <p><%= user.location || 'Location not added' %></p>
+              <article class="stat-tile">
+                <h6>Bookings</h6>
+                <p><%= stats.upcomingCount || 0 %></p>
               </article>
-              <article class="wide">
-                <h6>About</h6>
-                <p><%= user.bio || 'No bio available yet.' %></p>
-              </article>
-              <article class="wide">
-                <h6>Languages</h6>
-                <p><%= languagesText %></p>
+              <article class="stat-tile">
+                <h6>Reviews</h6>
+                <p><%= stats.reviewsReceivedCount || 0 %></p>
               </article>
             </div>
+          </article>
+        </div>
+
+        <div class="profile-info-grid mt-3">
+          <article class="info-card">
+            <h6>Location</h6>
+            <p><%= profile.location || "Location not added" %></p>
+          </article>
+          <article class="info-card">
+            <h6>Languages</h6>
+            <p><%= languagesText %></p>
+          </article>
+          <article class="info-card info-card-wide">
+            <h6>Bio</h6>
+            <p><%= profile.bio || "No bio added yet" %></p>
+          </article>
+        </div>
+
+        <div class="overview-actions-panel mt-3">
+          <h5 class="mb-3">Quick actions</h5>
+          <div class="quick-actions">
+            <a class="btn listing-btn-primary" href="/listings/new">Add listing</a>
+            <a class="btn nav-ghost-btn" href="/profile/listings">Manage listings</a>
+            <a class="btn nav-ghost-btn" href="/profile/bookings">View bookings</a>
+            <a class="btn nav-ghost-btn" href="/profile/reviews">Reviews</a>
+            <a class="btn nav-ghost-btn" href="/profile/wishlist">Wishlist</a>
+            <a class="btn nav-ghost-btn" href="/profile/settings">Settings</a>
           </div>
-        </div>
-      </section>
-
-      <section id="listings-preview" class="card-section reveal-up" data-stagger="3">
-        <div class="section-head">
-          <h2>Listings Preview</h2>
-          <a href="/listings/new" class="text-link">Add New Listing</a>
-        </div>
-        <div class="preview-grid listing-grid">
-          <% if (hostListings.length) { %>
-            <% for (let listing of hostListings) { %>
-              <article class="preview-card">
-                <a href="/listings/<%= listing._id %>">
-                  <img src="<%= listing.image && listing.image.url ? listing.image.url : 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800&h=500&fit=crop' %>" alt="<%= listing.title %>">
-                </a>
-                <div>
-                  <h5><%= listing.title %></h5>
-                  <p><%= listing.location || 'Unknown location' %> · <%= listing.country || 'Unknown country' %></p>
-                  <span class="status-pill <%= statusClassMap[listing.status] || 'draft' %>"><%= (listing.status || 'draft').toUpperCase() %></span>
-                </div>
-              </article>
-            <% } %>
-          <% } else { %>
-            <article class="empty-block">No listings yet. Create your first listing to get started.</article>
-          <% } %>
-        </div>
-      </section>
-
-      <section id="bookings-preview" class="card-section reveal-up" data-stagger="4">
-        <div class="section-head">
-          <h2>Bookings Preview</h2>
-          <a href="/profile/bookings" class="text-link">View Booking Details</a>
-        </div>
-        <div class="booking-columns">
-          <div>
-            <h6>Upcoming</h6>
-            <% if (bookings.upcoming && bookings.upcoming.length) { %>
-              <% for (let booking of bookings.upcoming) { %>
-                <article class="booking-item">
-                  <p class="booking-title"><%= booking.listing ? booking.listing.title : 'Listing unavailable' %></p>
-                  <p class="booking-meta"><%= formatBookingRange(booking.checkIn, booking.checkOut) %> · <%= booking.guestsCount || 1 %> guests</p>
-                </article>
-              <% } %>
-            <% } else { %>
-              <article class="empty-block">No upcoming bookings.</article>
-            <% } %>
-          </div>
-          <div>
-            <h6>Past</h6>
-            <% if (bookings.past && bookings.past.length) { %>
-              <% for (let booking of bookings.past) { %>
-                <article class="booking-item">
-                  <p class="booking-title"><%= booking.listing ? booking.listing.title : 'Listing unavailable' %></p>
-                  <p class="booking-meta"><%= formatBookingRange(booking.checkIn, booking.checkOut) %> · <%= booking.guestsCount || 1 %> guests</p>
-                </article>
-              <% } %>
-            <% } else { %>
-              <article class="empty-block">No past bookings.</article>
-            <% } %>
-          </div>
-          <div>
-            <h6>Cancelled</h6>
-            <% if (bookings.cancelled && bookings.cancelled.length) { %>
-              <% for (let booking of bookings.cancelled) { %>
-                <article class="booking-item cancelled">
-                  <p class="booking-title"><%= booking.listing ? booking.listing.title : 'Listing unavailable' %></p>
-                  <p class="booking-meta">Cancelled on <%= booking.cancelledAt ? new Date(booking.cancelledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A' %></p>
-                </article>
-              <% } %>
-            <% } else { %>
-              <article class="empty-block">No cancelled bookings.</article>
-            <% } %>
-          </div>
-        </div>
-      </section>
-
-      <section id="wishlist-preview" class="card-section reveal-up" data-stagger="5">
-        <div class="section-head">
-          <h2>Wishlist Preview</h2>
-          <a href="/profile/wishlist" class="text-link">Manage Collections</a>
-        </div>
-        <div class="wishlist-row">
-          <% if (wishlistCollections.length) { %>
-            <% for (let collection of wishlistCollections) { %>
-              <article class="wishlist-card">
-                <h5><%= collection.name %></h5>
-                <p><%= collection.items ? collection.items.length : 0 %> saved listings</p>
-                <% if (collection.items && collection.items.length) { %>
-                  <small class="d-block text-muted mb-2">Latest: <%= collection.items[0].listing ? collection.items[0].listing.title : 'Saved listing' %></small>
-                <% } %>
-                <button class="btn btn-sm btn-outline-dark" type="button">Remove Selected</button>
-              </article>
-            <% } %>
-          <% } else { %>
-            <article class="empty-block">No wishlist collections yet.</article>
-          <% } %>
-        </div>
-      </section>
-
-      <section id="reviews-preview" class="card-section reveal-up" data-stagger="6">
-        <div class="section-head">
-          <h2>Reviews Preview</h2>
-          <span class="rating-chip">Average <%= stats.averageRating ? stats.averageRating.toFixed(2) : '0.00' %></span>
-        </div>
-        <div class="reviews-columns">
-          <div>
-            <h6>Reviews Given</h6>
-            <% if (reviewsGiven.length) { %>
-              <% for (let review of reviewsGiven) { %>
-                <article class="review-item">
-                  <p class="review-title">"<%= review.comment %>"</p>
-                  <small><%= review.rating %> stars</small>
-                </article>
-              <% } %>
-            <% } else { %>
-              <article class="empty-block">No reviews given yet.</article>
-            <% } %>
-          </div>
-          <div>
-            <h6>Reviews Received</h6>
-            <% if (reviewsReceived.length) { %>
-              <% for (let review of reviewsReceived) { %>
-                <article class="review-item">
-                  <p class="review-title">"<%= review.comment %>"</p>
-                  <small>from <%= review.authorName %> · <%= review.rating %> stars · <%= review.listingTitle %></small>
-                </article>
-              <% } %>
-            <% } else { %>
-              <article class="empty-block">No reviews received yet.</article>
-            <% } %>
-          </div>
-        </div>
-      </section>
-
-      <section id="account-settings" class="card-section reveal-up" data-stagger="7">
-        <div class="section-head">
-          <h2>Account Settings</h2>
-          <span class="section-chip subtle">Secure Zone</span>
-        </div>
-
-        <div class="settings-grid">
-          <form class="settings-form" action="#" method="post" novalidate>
-            <h6>Update Contact</h6>
-            <div class="mb-3">
-              <label class="form-label">Email</label>
-              <input type="email" class="form-control" value="<%= user.email || '' %>">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Phone Number</label>
-              <input type="tel" class="form-control" value="<%= user.phoneNumber || '' %>">
-            </div>
-            <button class="btn btn-dark" type="button">Save Contact</button>
-          </form>
-
-          <form class="settings-form" action="#" method="post" novalidate>
-            <h6>Change Password</h6>
-            <div class="mb-3">
-              <label class="form-label">Current Password</label>
-              <input type="password" class="form-control" placeholder="Enter current password">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">New Password</label>
-              <input type="password" class="form-control" placeholder="Min 8 characters">
-            </div>
-            <button class="btn btn-dark" type="button">Update Password</button>
-          </form>
-
-          <form class="settings-form wide" action="#" method="post" novalidate>
-            <h6>Notification Preferences</h6>
-            <div class="form-check mb-2">
-              <input class="form-check-input" type="checkbox" <%= user.notificationPreferences && user.notificationPreferences.bookingUpdates ? 'checked' : '' %> id="bookingUpdates">
-              <label class="form-check-label" for="bookingUpdates">Booking updates</label>
-            </div>
-            <div class="form-check mb-2">
-              <input class="form-check-input" type="checkbox" <%= user.notificationPreferences && user.notificationPreferences.reminders ? 'checked' : '' %> id="reminders">
-              <label class="form-check-label" for="reminders">Reminders</label>
-            </div>
-            <div class="form-check mb-2">
-              <input class="form-check-input" type="checkbox" <%= user.notificationPreferences && user.notificationPreferences.promotions ? 'checked' : '' %> id="promotions">
-              <label class="form-check-label" for="promotions">Promotions</label>
-            </div>
-            <button class="btn btn-outline-dark mt-2" type="button">Save Preferences</button>
-          </form>
-
-          <form class="settings-form danger" action="#" method="post" novalidate>
-            <h6>Delete Account</h6>
-            <p class="mb-3 text-muted">This action is permanent and disables your host and travel history.</p>
-            <input type="text" class="form-control mb-3" placeholder='Type "DELETE" to confirm'>
-            <button class="btn btn-danger" type="button">Delete Account</button>
-          </form>
         </div>
       </section>
     </main>

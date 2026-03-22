@@ -73,6 +73,15 @@ const userSchema = new Schema(
             enum: ["active", "suspended", "deleted"],
             default: "active",
         },
+        wishlist: {
+            type: [
+                {
+                    type: Schema.Types.ObjectId,
+                    ref: "Listing",
+                },
+            ],
+            default: [],
+        },
         lastLoginAt: Date,
     },
     {

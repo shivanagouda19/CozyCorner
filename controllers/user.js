@@ -1,4 +1,5 @@
 const User = require("../models/user.js");
+const config = require("../config");
 
 module.exports.renderSignupForm = (req, res) => {
 	res.render("users/signup");
@@ -7,7 +8,9 @@ module.exports.renderSignupForm = (req, res) => {
 module.exports.signup = async (req, res, next) => {
 	try {
 		const { username, email, password } = req.body;
-		const newUser = new User({ email, username });
+		const safeUsername = username?.trim();
+		const safeEmail = email?.trim().toLowerCase();
+		const newUser = new User({ email: safeEmail, username: safeUsername });
 		const registeredUser = await User.register(newUser, password);
 
 		req.login(registeredUser, (err) => {
@@ -28,9 +31,25 @@ module.exports.renderLoginForm = (req, res) => {
 };
 
 module.exports.login = async (req, res) => {
-	req.flash("success", "Welcome back to Wanderlust!");
 	const redirectUrl = res.locals.redirectUrl || "/listings";
-	res.redirect(redirectUrl);
+	const authenticatedUser = req.user;
+
+	req.session.regenerate((sessionError) => {
+		if (sessionError) {
+			req.flash("error", "We could not refresh your session. Please try again.");
+			return res.redirect("/login");
+		}
+
+		req.login(authenticatedUser, (loginError) => {
+			if (loginError) {
+				req.flash("error", "Login session could not be established. Please try again.");
+				return res.redirect("/login");
+			}
+
+			req.flash("success", "Welcome back to Wanderlust!");
+			return res.redirect(redirectUrl);
+		});
+	});
 };
 
 module.exports.logout = (req, res, next) => {
@@ -38,7 +57,15 @@ module.exports.logout = (req, res, next) => {
 		if (err) {
 			return next(err);
 		}
-		req.flash("success", "you are logged out!");
-		res.redirect("/listings");
+
+		req.session.regenerate((sessionError) => {
+			if (sessionError) {
+				return next(sessionError);
+			}
+
+			res.clearCookie(config.session.name);
+			req.flash("success", "you are logged out!");
+			return res.redirect("/listings");
+		});
 	});
 };

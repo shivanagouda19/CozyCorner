@@ -1,0 +1,80 @@
+<% layout("/layouts/boilerplate.ejs") -%>
+<link rel="stylesheet" href="/css/profile.css">
+
+<%
+  const user = profileData?.user || {};
+  const bookings = profileData?.bookings || { upcoming: [], past: [], cancelled: [] };
+  const fullName = user.fullName || user.username || "Guest";
+  const formatBookingRange = (checkIn, checkOut) => {
+    if (!checkIn || !checkOut) return "Dates unavailable";
+    const start = new Date(checkIn).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const end = new Date(checkOut).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return `${start} - ${end}`;
+  };
+%>
+
+<section class="profile-shell">
+  <div class="profile-grid mt-2">
+    <%- include("./includes/sidebar.ejs", { activeRoute }) %>
+
+    <main class="profile-main">
+      <section class="card-section reveal-up" data-stagger="2">
+        <div class="section-head">
+          <h2><%= fullName %>'s bookings</h2>
+          <a href="/listings" class="text-link">Find stays</a>
+        </div>
+
+        <div class="booking-columns">
+          <div>
+            <h6>Upcoming</h6>
+            <% if (bookings.upcoming?.length) { %>
+              <% bookings.upcoming.forEach((booking) => { %>
+                <article class="booking-item">
+                  <p class="booking-title"><%= booking.listing?.title || 'Listing unavailable' %></p>
+                  <p class="booking-meta"><%= formatBookingRange(booking.checkIn, booking.checkOut) %> · <%= booking.guestsCount || 1 %> guests</p>
+                  <form method="POST" action="/bookings/<%= booking._id %>/cancel?_method=PATCH" class="mt-2">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <input type="hidden" name="booking[cancellationReason]" value="Cancelled from profile bookings">
+                    <button class="btn btn-sm listing-btn-danger">Cancel booking</button>
+                  </form>
+                </article>
+              <% }) %>
+            <% } else { %>
+              <article class="empty-block">No upcoming bookings.</article>
+            <% } %>
+          </div>
+
+          <div>
+            <h6>Past</h6>
+            <% if (bookings.past?.length) { %>
+              <% bookings.past.forEach((booking) => { %>
+                <article class="booking-item">
+                  <p class="booking-title"><%= booking.listing?.title || 'Listing unavailable' %></p>
+                  <p class="booking-meta"><%= formatBookingRange(booking.checkIn, booking.checkOut) %></p>
+                </article>
+              <% }) %>
+            <% } else { %>
+              <article class="empty-block">No past bookings.</article>
+            <% } %>
+          </div>
+
+          <div>
+            <h6>Cancelled</h6>
+            <% if (bookings.cancelled?.length) { %>
+              <% bookings.cancelled.forEach((booking) => { %>
+                <article class="booking-item cancelled">
+                  <p class="booking-title"><%= booking.listing?.title || 'Listing unavailable' %></p>
+                  <p class="booking-meta">Cancelled on <%= booking.cancelledAt ? new Date(booking.cancelledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A' %></p>
+                </article>
+              <% }) %>
+            <% } else { %>
+              <article class="empty-block">No cancelled bookings.</article>
+            <% } %>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</section>
+
+<script src="/js/profile.js"></script>

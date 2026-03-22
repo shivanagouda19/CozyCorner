@@ -34,6 +34,21 @@ const bookingSchema = new Schema(
             min: 1,
             default: 1,
         },
+        nights: {
+            type: Number,
+            min: 1,
+            required: true,
+        },
+        nightlyRate: {
+            type: Number,
+            min: 0,
+            required: true,
+        },
+        serviceFee: {
+            type: Number,
+            min: 0,
+            default: 0,
+        },
         totalPrice: {
             type: Number,
             required: true,
@@ -48,8 +63,8 @@ const bookingSchema = new Schema(
         },
         status: {
             type: String,
-            enum: ["upcoming", "completed", "cancelled"],
-            default: "upcoming",
+            enum: ["pending", "confirmed", "rejected", "cancelled", "completed"],
+            default: "pending",
             index: true,
         },
         cancelledAt: Date,
@@ -68,11 +83,10 @@ bookingSchema.index({ guest: 1, status: 1, checkIn: 1 });
 bookingSchema.index({ host: 1, status: 1, checkIn: 1 });
 bookingSchema.index({ listing: 1, checkIn: 1, checkOut: 1 });
 
-bookingSchema.pre("validate", function (next) {
+bookingSchema.pre("validate", function () {
     if (this.checkIn && this.checkOut && this.checkOut <= this.checkIn) {
-        return next(new Error("checkOut must be later than checkIn"));
+        throw new Error("checkOut must be later than checkIn");
     }
-    next();
 });
 
 module.exports = mongoose.model("Booking", bookingSchema);

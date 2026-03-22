@@ -1,0 +1,17 @@
+<%
+  const route = typeof activeRoute === "string" ? activeRoute : "profile";
+%>
+<aside class="profile-sidebar reveal-up" data-stagger="1">
+  <div class="sidebar-header">
+    <p class="mb-1 sidebar-label">Dashboard</p>
+    <button class="btn btn-sm btn-outline-secondary d-lg-none" id="sidebarToggle" type="button">Toggle</button>
+  </div>
+  <nav class="sidebar-nav" id="sidebarNav">
+    <a href="/profile" class="sidebar-link <%= route === 'profile' ? 'is-active' : '' %>">Overview</a>
+    <a href="/profile/listings" class="sidebar-link <%= route === 'listings' ? 'is-active' : '' %>">Listings</a>
+    <a href="/profile/bookings" class="sidebar-link <%= route === 'bookings' ? 'is-active' : '' %>">Bookings</a>
+    <a href="/profile/reviews" class="sidebar-link <%= route === 'reviews' ? 'is-active' : '' %>">Reviews</a>
+    <a href="/profile/wishlist" class="sidebar-link <%= route === 'wishlist' ? 'is-active' : '' %>">Wishlist</a>
+    <a href="/profile/settings" class="sidebar-link <%= route === 'settings' ? 'is-active' : '' %>">Settings</a>
+  </nav>
+</aside>

@@ -5,6 +5,7 @@
             <h2>Create a New Listing</h2>
             <br>
             <form method="POST" action="/listings" enctype="multipart/form-data" novalidate class="needs-validation">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <div class="mb-3">
                     <label for="title" class="form-label">Title</label>
                     <input name="listing[title]" placeholder="enter title" type="text" id="title"
@@ -30,15 +31,22 @@
                 </div>
                 <br />
                 <div class="mb-3">
-                    <label for="image" class="form-label">image</label>
-                    <input name="listing[image][url]" placeholder="enter image URL/Link" type="text" class="form-control" />
-                </div>
-                <div class="mb-3">
-                    <label for="listingImage" class="form-label">Upload Image</label>
-                    <input name="listingImage" id="listingImage" type="file" accept="image/*" class="form-control" />
-                    <div class="form-text">You can upload an image file or use the URL field above.</div>
+                    <label for="listingImages" class="form-label">Upload Images</label>
+                    <input name="listingImages" id="listingImages" type="file" accept="image/*" class="form-control" multiple />
+                    <div class="form-text">You can upload up to 5 images per listing.</div>
                 </div>
                 <br />
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select name="listing[category]" required>
+                        <option value="">Select Category</option>
+                        <option value="villa">Villa</option>
+                        <option value="apartment">Apartment</option>
+                        <option value="farmhouse">Farmhouse</option>
+                        <option value="room">Room</option>
+                        <option value="hotel">Hotel</option>
+                    </select>
+                </div><br>
                 <div class="row">
                     <div class="mb-3 col-md-4">
                         <label for="price" class="form-label">price</label>
@@ -79,7 +87,11 @@
 
                 <div class="mb-3 create-map-preview-wrapper">
                     <label class="form-label">Live Map Preview</label>
-                    <div id="create-listing-map" class="listing-map-preview"></div>
+                    <div
+                        id="create-listing-map"
+                        class="listing-map-preview"
+                        data-map-config='<%- JSON.stringify({ mapToken, fallbackZoom }) %>'
+                    ></div>
                     <p id="create-map-status" class="map-status-text mt-2 mb-0">Start typing location and country to preview the map.</p>
                 </div>
                 <br />
@@ -89,15 +101,8 @@
             </form>
         </div>
     </div>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" rel="stylesheet">
-    <script>
-        window.createListingMapData = {
-            mapToken: <%- JSON.stringify(mapToken) %>,
-            fallbackZoom: <%- JSON.stringify(fallbackZoom) %>
-        };
-    </script>
-    <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
-    <script src="/js/createListingMap.js"></script>
+    <script src="/js/map/core.js"></script>
+    <script src="/js/map/createMap.js"></script>
     <!-- <input name="title" placeholder="enter title" type="text" />
         <br />
         <textarea name="description" placeholder="enter description"></textarea>

@@ -1,0 +1,86 @@
+<% layout("/layouts/boilerplate.ejs") -%>
+<link rel="stylesheet" href="/css/profile.css">
+
+<%
+  const user = profileData?.user || {};
+  const fullName = user.fullName || user.username || "Member";
+%>
+
+<section class="profile-shell">
+  <div class="profile-grid mt-2">
+    <%- include("./includes/sidebar.ejs", { activeRoute }) %>
+
+    <main class="profile-main">
+      <section class="card-section reveal-up" data-stagger="2">
+        <div class="section-head">
+          <h2>Settings</h2>
+          <a href="/profile/edit" class="text-link">Edit profile</a>
+        </div>
+        <p class="mb-3"><strong><%= fullName %></strong> · Manage account security and preferences.</p>
+
+        <div class="settings-grid">
+          <form class="settings-form" action="/profile/account?_method=PATCH" method="post" novalidate>
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <h6>Update contact</h6>
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" name="account[email]" value="<%= user.email || '' %>" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Phone Number</label>
+              <input type="tel" class="form-control" name="account[phoneNumber]" value="<%= user.phoneNumber || '' %>">
+            </div>
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" name="account[notificationPreferences][bookingUpdates]" id="bookingUpdates" <%= user.notificationPreferences?.bookingUpdates ? 'checked' : '' %>>
+              <label class="form-check-label" for="bookingUpdates">Booking updates</label>
+            </div>
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" name="account[notificationPreferences][reminders]" id="reminders" <%= user.notificationPreferences?.reminders ? 'checked' : '' %>>
+              <label class="form-check-label" for="reminders">Reminders</label>
+            </div>
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" name="account[notificationPreferences][promotions]" id="promotions" <%= user.notificationPreferences?.promotions ? 'checked' : '' %>>
+              <label class="form-check-label" for="promotions">Promotions</label>
+            </div>
+            <button class="btn listing-btn-primary" type="submit">Save settings</button>
+          </form>
+
+          <form class="settings-form" action="/profile/password?_method=PATCH" method="post" novalidate>
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <h6>Change password</h6>
+            <div class="mb-3">
+              <label class="form-label">Current Password</label>
+              <input type="password" class="form-control" name="password[currentPassword]" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">New Password</label>
+              <input type="password" class="form-control" name="password[newPassword]" placeholder="Min 10 characters" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Confirm Password</label>
+              <input type="password" class="form-control" name="password[confirmPassword]" required>
+            </div>
+            <button class="btn listing-btn-primary" type="submit">Update password</button>
+          </form>
+
+          <form class="settings-form danger wide" action="/profile?_method=DELETE" method="post" novalidate>
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <h6>Delete account</h6>
+            <p class="mb-3 text-muted">This action is permanent and disables your host and travel history.</p>
+            <div class="mb-3">
+              <label class="form-label">Password</label>
+              <input type="password" class="form-control" name="account[password]" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Type DELETE to confirm</label>
+              <input type="text" class="form-control" name="account[confirmationText]" required>
+            </div>
+            <button class="btn btn-danger" type="submit">Delete account</button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+</section>
+
+<script src="/js/profile.js"></script>

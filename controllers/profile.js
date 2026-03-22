@@ -3,73 +3,68 @@ const User = require("../models/user");
 const Listing = require("../models/listing");
 const Review = require("../models/review");
 const Booking = require("../models/booking");
-const Wishlist = require("../models/wishlist");
 const Payout = require("../models/payout");
+const { ACTIVE_BOOKING_STATUSES } = require("../utils/booking");
 
 const safeObjectId = (id) => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
 
-module.exports.getProfile = async (req, res) => {
-    const userId = req.user._id;
-
+const syncCompletedBookings = async (query) => {
     const now = new Date();
+    await Booking.updateMany(
+        {
+            ...query,
+            status: { $in: ACTIVE_BOOKING_STATUSES },
+            checkOut: { $lt: now },
+        },
+        { $set: { status: "completed" } }
+    );
+};
 
-    const [
-        user,
-        hostListings,
-        upcomingBookings,
-        pastBookings,
-        cancelledBookings,
-        wishlistCollections,
-        reviewsGiven,
-        hostListingsWithReviews,
-    ] = await Promise.all([
-        User.findById(userId)
-            .select("username email fullName bio location languages avatar phoneNumber verification badges notificationPreferences createdAt profileCompleteness")
-            .lean(),
-        Listing.find({ owner: userId })
-            .select("title image location country status")
-            .sort({ createdAt: -1 })
-            .limit(6)
-            .lean(),
-        Booking.find({ guest: userId, status: "upcoming", checkOut: { $gte: now } })
-            .select("listing checkIn checkOut guestsCount status cancelledAt")
-            .populate("listing", "title image location country")
-            .sort({ checkIn: 1 })
-            .limit(5)
-            .lean(),
-        Booking.find({ guest: userId, $or: [{ status: "completed" }, { checkOut: { $lt: now } }] })
-            .select("listing checkIn checkOut guestsCount status")
-            .populate("listing", "title image location country")
-            .sort({ checkIn: -1 })
-            .limit(5)
-            .lean(),
-        Booking.find({ guest: userId, status: "cancelled" })
-            .select("listing checkIn checkOut guestsCount status cancelledAt")
-            .populate("listing", "title image location country")
-            .sort({ updatedAt: -1 })
-            .limit(5)
-            .lean(),
-        Wishlist.find({ owner: userId })
-            .select("name description items")
-            .populate("items.listing", "title image price location country status")
-            .sort({ createdAt: -1 })
-            .limit(4)
-            .lean(),
-        Review.find({ author: userId })
-            .select("comment rating createdAt")
-            .sort({ createdAt: -1 })
-            .limit(5)
-            .lean(),
-        Listing.find({ owner: userId })
-            .select("title reviews")
-            .populate({ path: "reviews", populate: { path: "author", select: "username fullName" } })
-            .lean(),
-    ]);
+const isJsonRequest = (req) => {
+    const accept = req.get("accept") || "";
+    return accept.includes("application/json") && !accept.includes("text/html");
+};
 
-    if (!user) {
-        req.flash("error", "User not found.");
-        return res.redirect("/login");
+const renderOrJson = (req, res, payload, redirectPath, flashMessage) => {
+    if (isJsonRequest(req)) {
+        return res.json(payload);
     }
+
+    if (flashMessage) {
+        req.flash("success", flashMessage);
+    }
+
+    return res.redirect(redirectPath);
+};
+
+const mapUserForProfileView = (user) => {
+    if (!user) return null;
+
+    const safeLanguages = Array.isArray(user.languages) ? user.languages : [];
+
+    return {
+        ...user,
+        profile: {
+            bio: user.bio || "",
+            location: user.location || "",
+            languages: safeLanguages,
+        },
+    };
+};
+
+const getBaseUser = async (userId) => {
+    const user = await User.findById(userId)
+        .select("username email fullName bio location languages avatar phoneNumber verification badges notificationPreferences createdAt profileCompleteness wishlist")
+        .lean();
+
+    return mapUserForProfileView(user);
+};
+
+const getReviewsReceivedData = async (userId) => {
+    const hostListingsWithReviews = await Listing.find({ owner: userId })
+        .select("title reviews")
+        .populate({ path: "reviews", populate: { path: "author", select: "username fullName" } })
+        .lean();
 
     const reviewsReceived = hostListingsWithReviews
         .flatMap((listing) =>
@@ -81,32 +76,66 @@ module.exports.getProfile = async (req, res) => {
                 authorName: review.author?.fullName || review.author?.username || "Guest",
             }))
         )
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .slice(0, 5);
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    const receivedRatingValues = reviewsReceived.map((review) => review.rating).filter((rating) => typeof rating === "number");
-    const averageRating = receivedRatingValues.length
-        ? Number((receivedRatingValues.reduce((sum, rating) => sum + rating, 0) / receivedRatingValues.length).toFixed(2))
-        : 0;
+    return reviewsReceived;
+};
+
+module.exports.getProfile = async (req, res) => {
+    const userId = req.user._id;
+
+    await syncCompletedBookings({ guest: userId });
+
+    const [user, listingCount, reviewsReceivedCount, upcomingCount] = await Promise.all([
+        getBaseUser(userId),
+        Listing.countDocuments({ owner: userId }),
+        Review.countDocuments({ listing: { $in: await Listing.find({ owner: userId }).distinct("_id") } }),
+        Booking.countDocuments({ guest: userId, status: { $in: ACTIVE_BOOKING_STATUSES }, checkOut: { $gte: new Date() } }),
+    ]);
+
+    if (!user) {
+        req.flash("error", "User not found.");
+        return res.redirect("/login");
+    }
 
     res.render("profile/index.ejs", {
         profileData: {
             user,
-            hostListings,
-            bookings: {
-                upcoming: upcomingBookings,
-                past: pastBookings,
-                cancelled: cancelledBookings,
-            },
-            wishlistCollections,
-            reviewsGiven,
-            reviewsReceived,
             stats: {
-                averageRating,
-                listingCount: hostListings.length,
-                wishlistCount: wishlistCollections.length,
+                listingCount,
+                reviewsReceivedCount,
+                upcomingCount,
             },
         },
+        activeRoute: "profile",
+    });
+};
+
+module.exports.renderEditProfileForm = async (req, res) => {
+    const user = await getBaseUser(req.user._id);
+
+    if (!user) {
+        req.flash("error", "User not found.");
+        return res.redirect("/login");
+    }
+
+    return res.render("profile/edit.ejs", {
+        profileData: { user },
+        activeRoute: "settings",
+    });
+};
+
+module.exports.getSettings = async (req, res) => {
+    const user = await getBaseUser(req.user._id);
+
+    if (!user) {
+        req.flash("error", "User not found.");
+        return res.redirect("/login");
+    }
+
+    return res.render("profile/settings.ejs", {
+        profileData: { user },
+        activeRoute: "settings",
     });
 };
 
@@ -114,7 +143,10 @@ module.exports.updateProfile = async (req, res) => {
     const { fullName, bio = "", location = "", languages = [] } = req.body.profile;
     const normalizedLanguages = Array.isArray(languages)
         ? languages.map((item) => String(item).trim()).filter(Boolean)
-        : [];
+        : String(languages || "")
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
 
     const updated = await User.findByIdAndUpdate(
         req.user._id,
@@ -129,7 +161,13 @@ module.exports.updateProfile = async (req, res) => {
         { new: true, runValidators: true }
     ).select("username email fullName bio location languages avatar phoneNumber verification badges createdAt profileCompleteness");
 
-    res.json({ message: "Profile updated", profile: updated });
+    return renderOrJson(
+        req,
+        res,
+        { message: "Profile updated", profile: updated },
+        "/profile",
+        "Profile updated successfully."
+    );
 };
 
 module.exports.updateAccountSettings = async (req, res) => {
@@ -151,7 +189,13 @@ module.exports.updateAccountSettings = async (req, res) => {
         { new: true, runValidators: true }
     ).select("username email phoneNumber notificationPreferences verification");
 
-    res.json({ message: "Account settings updated", account: updated });
+    return renderOrJson(
+        req,
+        res,
+        { message: "Account settings updated", account: updated },
+        "/profile/settings",
+        "Account settings updated successfully."
+    );
 };
 
 module.exports.changePassword = async (req, res) => {
@@ -159,18 +203,28 @@ module.exports.changePassword = async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        if (isJsonRequest(req)) return res.status(404).json({ message: "User not found" });
+        req.flash("error", "User not found");
+        return res.redirect("/profile/settings");
     }
 
     const isValid = await user.authenticate(currentPassword);
     if (!isValid.user) {
-        return res.status(400).json({ message: "Current password is incorrect" });
+        if (isJsonRequest(req)) return res.status(400).json({ message: "Current password is incorrect" });
+        req.flash("error", "Current password is incorrect");
+        return res.redirect("/profile/settings");
     }
 
     await user.setPassword(newPassword);
     await user.save();
 
-    res.json({ message: "Password changed successfully" });
+    return renderOrJson(
+        req,
+        res,
+        { message: "Password changed successfully" },
+        "/profile/settings",
+        "Password changed successfully."
+    );
 };
 
 module.exports.deleteAccount = async (req, res) => {
@@ -178,82 +232,132 @@ module.exports.deleteAccount = async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        if (isJsonRequest(req)) return res.status(404).json({ message: "User not found" });
+        req.flash("error", "User not found");
+        return res.redirect("/profile/settings");
     }
 
     const authResult = await user.authenticate(password);
     if (!authResult.user) {
-        return res.status(400).json({ message: "Password is incorrect" });
+        if (isJsonRequest(req)) return res.status(400).json({ message: "Password is incorrect" });
+        req.flash("error", "Password is incorrect");
+        return res.redirect("/profile/settings");
     }
 
     await User.findByIdAndUpdate(req.user._id, { $set: { accountStatus: "deleted" } });
 
-    req.logout((err) => {
+    return req.logout((err) => {
         if (err) {
-            return res.status(500).json({ message: "Failed to logout after account deletion." });
+            if (isJsonRequest(req)) {
+                return res.status(500).json({ message: "Failed to logout after account deletion." });
+            }
+            req.flash("error", "Failed to logout after account deletion.");
+            return res.redirect("/profile/settings");
         }
-        return res.json({ message: "Account marked as deleted" });
+
+        if (isJsonRequest(req)) {
+            return res.json({ message: "Account marked as deleted" });
+        }
+
+        req.flash("success", "Account marked as deleted.");
+        return res.redirect("/login");
     });
 };
 
 module.exports.getHostListings = async (req, res) => {
-    const listings = await Listing.find({ owner: req.user._id })
+    const [user, listings] = await Promise.all([
+        getBaseUser(req.user._id),
+        Listing.find({ owner: req.user._id })
         .select("title image price location country status createdAt")
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
 
-    res.json({ listings });
+    return res.render("profile/listings.ejs", {
+        profileData: { user, listings },
+        activeRoute: "listings",
+    });
 };
 
 module.exports.getBookings = async (req, res) => {
     const now = new Date();
+    await syncCompletedBookings({ guest: req.user._id });
 
-    const [upcoming, past, cancelled] = await Promise.all([
-        Booking.find({ guest: req.user._id, status: "upcoming", checkOut: { $gte: now } })
+    const [user, upcoming, past, cancelled] = await Promise.all([
+        getBaseUser(req.user._id),
+        Booking.find({ guest: req.user._id, status: { $in: ACTIVE_BOOKING_STATUSES }, checkOut: { $gte: now } })
             .populate("listing", "title image location country")
-            .sort({ checkIn: 1 }),
+            .sort({ checkIn: 1 })
+            .lean(),
         Booking.find({ guest: req.user._id, $or: [{ status: "completed" }, { checkOut: { $lt: now } }] })
             .populate("listing", "title image location country")
-            .sort({ checkIn: -1 }),
+            .sort({ checkIn: -1 })
+            .lean(),
         Booking.find({ guest: req.user._id, status: "cancelled" })
             .populate("listing", "title image location country")
-            .sort({ updatedAt: -1 }),
+            .sort({ updatedAt: -1 })
+            .lean(),
     ]);
 
-    res.json({ upcoming, past, cancelled });
+    return res.render("profile/bookings.ejs", {
+        profileData: {
+            user,
+            bookings: {
+                upcoming,
+                past,
+                cancelled,
+            },
+        },
+        activeRoute: "bookings",
+    });
 };
 
 module.exports.getWishlist = async (req, res) => {
-    const collections = await Wishlist.find({ owner: req.user._id })
-        .populate("items.listing", "title image price location country status")
-        .sort({ createdAt: -1 });
+    const user = await User.findById(req.user._id)
+        .select("username email fullName bio location languages avatar phoneNumber verification badges notificationPreferences createdAt profileCompleteness wishlist")
+        .lean();
 
-    res.json({ collections });
-};
-
-module.exports.removeWishlistItem = async (req, res) => {
-    const { wishlistId, listingId } = req.params;
-    const ownerId = req.user._id;
-
-    const result = await Wishlist.findOneAndUpdate(
-        { _id: wishlistId, owner: ownerId },
-        { $pull: { items: { listing: listingId } } },
-        { new: true }
-    );
-
-    if (!result) {
-        return res.status(404).json({ message: "Wishlist not found" });
+    if (!user) {
+        req.flash("error", "User not found.");
+        return res.redirect("/login");
     }
 
-    res.json({ message: "Listing removed from wishlist", wishlist: result });
+    const wishlistIds = Array.isArray(user.wishlist)
+        ? user.wishlist.map((id) => id.toString())
+        : [];
+
+    const wishlistListingsRaw = wishlistIds.length
+        ? await Listing.find({ _id: { $in: wishlistIds } })
+            .select("title image price location country ratingAverage ratingCount")
+            .lean()
+        : [];
+
+    const listingById = new Map(
+        wishlistListingsRaw.map((listing) => [String(listing._id), listing])
+    );
+
+    const wishlistListings = wishlistIds
+        .map((id) => listingById.get(id))
+        .filter(Boolean);
+
+    return res.render("profile/wishlist.ejs", {
+        profileData: {
+            user,
+            wishlistListings,
+        },
+        activeRoute: "wishlist",
+    });
 };
 
 module.exports.getReviewsOverview = async (req, res) => {
     const userObjectId = safeObjectId(req.user._id.toString());
 
-    const [reviewsGiven, hostReviewData] = await Promise.all([
+    const [user, reviewsGiven, reviewsReceived, hostReviewData] = await Promise.all([
+        getBaseUser(req.user._id),
         Review.find({ author: req.user._id })
-            .populate("author", "username fullName avatar")
-            .sort({ createdAt: -1 }),
+            .sort({ createdAt: -1 })
+            .lean(),
+        getReviewsReceivedData(req.user._id),
         Listing.aggregate([
             { $match: { owner: userObjectId } },
             {
@@ -281,10 +385,17 @@ module.exports.getReviewsOverview = async (req, res) => {
 
     const stats = hostReviewData[0] || { averageRating: 0, reviewsReceivedCount: 0 };
 
-    res.json({
-        reviewsGiven,
-        reviewsReceivedCount: stats.reviewsReceivedCount,
-        averageRating: Number((stats.averageRating || 0).toFixed(2)),
+    return res.render("profile/reviews.ejs", {
+        profileData: {
+            user,
+            reviewsGiven,
+            reviewsReceived,
+            stats: {
+                reviewsReceivedCount: stats.reviewsReceivedCount,
+                averageRating: Number((stats.averageRating || 0).toFixed(2)),
+            },
+        },
+        activeRoute: "reviews",
     });
 };
 
@@ -319,4 +430,10 @@ module.exports.getHostPayoutDashboard = async (req, res) => {
         monthlyEarnings,
         payoutHistory,
     });
+};
+
+module.exports.getHostBookingsDashboard = async (req, res) => {
+    const query = new URLSearchParams(req.query || {}).toString();
+    const target = query ? `/bookings/host?${query}` : "/bookings/host";
+    return res.redirect(target);
 };

@@ -1,0 +1,50 @@
+<% layout("/layouts/boilerplate.ejs") -%>
+<link rel="stylesheet" href="/css/profile.css">
+
+<%
+  const user = profileData?.user || {};
+  const languagesText = Array.isArray(user.languages) ? user.languages.join(', ') : '';
+%>
+
+<section class="profile-shell">
+  <div class="profile-grid mt-2">
+    <%- include("./includes/sidebar.ejs", { activeRoute }) %>
+
+    <main class="profile-main">
+      <section class="card-section reveal-up" data-stagger="2">
+        <div class="section-head">
+          <h2>Edit profile</h2>
+          <a href="/profile/settings" class="text-link">Back to settings</a>
+        </div>
+
+        <form action="/profile?_method=PATCH" method="post" class="settings-form wide" novalidate>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <div class="mb-3">
+            <label class="form-label">Full Name</label>
+            <input type="text" class="form-control" name="profile[fullName]" value="<%= user.fullName || user.username || '' %>" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Bio</label>
+            <textarea class="form-control" rows="4" name="profile[bio]"><%= user.bio || '' %></textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Location</label>
+            <input type="text" class="form-control" name="profile[location]" value="<%= user.location || '' %>">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Languages (comma separated)</label>
+            <input type="text" class="form-control" name="profile[languages]" value="<%= languagesText %>">
+          </div>
+
+          <button class="btn listing-btn-primary" type="submit">Save profile</button>
+        </form>
+      </section>
+    </main>
+  </div>
+</section>
+
+<script src="/js/profile.js"></script>

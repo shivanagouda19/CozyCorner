@@ -2,18 +2,19 @@ const express = require("express");
 const router = express.Router();
 const wrapAsync = require("../utils/wrapAsync.js");
 const passport = require("passport");
-const {saveRedirectUrl} = require("../middleware.js");
+const { saveRedirectUrl, validateSignup, validateLogin } = require("../middleware.js");
 const userController = require("../controllers/user.js");
 
 router
     .route("/signup")
     .get(userController.renderSignupForm)
-    .post(wrapAsync(userController.signup));
+    .post(validateSignup, wrapAsync(userController.signup));
 
 router
     .route("/login")
     .get(userController.renderLoginForm)
     .post(
+        validateLogin,
         saveRedirectUrl,
         passport.authenticate("local", {
             failureRedirect: "/login",
