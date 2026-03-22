@@ -1,8 +1,6 @@
 init/
-Middleware/
 node_modules/
 notes.txt
 npmInstalled
 .env
-classroom/
 .tmp-app-out.log
