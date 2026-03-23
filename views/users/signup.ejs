@@ -4,7 +4,7 @@
     <div class="col-12 col-md-10 col-lg-8 offset-md-1 offset-lg-2">
         <h1 class="mb-3">SignUp on Wanderlust</h1>
 
-        <form action="/signup" method="POST" class="needs-validation" novalidate>
+        <form action="/signup" method="POST" class="needs-validation" id="signupForm" novalidate>
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <div class="mb-3">
                 <label for="username" class="form-label">Username</label>
@@ -13,9 +13,13 @@
                     id="username"
                     type="text"
                     class="form-control"
+                    minlength="3"
+                    maxlength="30"
+                    pattern="^[A-Za-z0-9]{3,30}$"
                     required
                 />
-                <div class="invalid-feedback">Please enter a username.</div>
+                <div class="valid-feedback">Looks good.</div>
+                <div class="invalid-feedback">Username must be 3-30 characters and contain only letters and numbers.</div>
             </div>
 
             <div class="mb-3">
@@ -27,6 +31,7 @@
                     class="form-control"
                     required
                 />
+                <div class="valid-feedback">Valid email.</div>
                 <div class="invalid-feedback">Please enter a valid email.</div>
             </div>
 
@@ -37,12 +42,123 @@
                     id="password"
                     type="password"
                     class="form-control"
+                    minlength="10"
+                    maxlength="128"
                     required
                 />
-                <div class="invalid-feedback">Please enter a password.</div>
+                <div id="passwordHelp" class="form-text">
+                    Password must contain uppercase, lowercase, number, special character and be at least 10 chars
+                </div>
+                <div class="valid-feedback">Strong password.</div>
+                <div class="invalid-feedback" id="passwordError">
+                    Password must contain uppercase, lowercase, number, special character and be at least 10 chars
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="confirmPassword" class="form-label">Confirm Password</label>
+                <input
+                    name="confirmPassword"
+                    id="confirmPassword"
+                    type="password"
+                    class="form-control"
+                    required
+                />
+                <div class="valid-feedback">Passwords match.</div>
+                <div class="invalid-feedback">Confirm password must match password.</div>
             </div>
 
             <button type="submit" class="btn btn-success">SignUp</button>
         </form>
     </div>
 </div>
+
+<script>
+    (() => {
+        const form = document.getElementById("signupForm");
+        const usernameInput = document.getElementById("username");
+        const emailInput = document.getElementById("email");
+        const passwordInput = document.getElementById("password");
+        const confirmPasswordInput = document.getElementById("confirmPassword");
+        const passwordError = document.getElementById("passwordError");
+
+        const usernameRegex = /^[A-Za-z0-9]{3,30}$/;
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{10,}$/;
+        const passwordMessage = "Password must contain uppercase, lowercase, number, special character and be at least 10 chars";
+
+        const setFieldState = (input, isValid, message = "") => {
+            if (message) {
+                input.setCustomValidity(message);
+            } else {
+                input.setCustomValidity("");
+            }
+
+            input.classList.remove("is-valid", "is-invalid");
+
+            if (!input.value.trim()) {
+                return false;
+            }
+
+            input.classList.add(isValid ? "is-valid" : "is-invalid");
+            return isValid;
+        };
+
+        const validateUsername = () => {
+            const value = usernameInput.value.trim();
+            const valid = usernameRegex.test(value);
+            return setFieldState(
+                usernameInput,
+                valid,
+                valid ? "" : "Username must be 3-30 characters and contain only letters and numbers."
+            );
+        };
+
+        const validateEmail = () => {
+            const value = emailInput.value.trim();
+            const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+            return setFieldState(emailInput, valid, valid ? "" : "Please enter a valid email.");
+        };
+
+        const validatePassword = () => {
+            const value = passwordInput.value;
+            const valid = passwordRegex.test(value);
+            passwordError.textContent = passwordMessage;
+            return setFieldState(passwordInput, valid, valid ? "" : passwordMessage);
+        };
+
+        const validateConfirmPassword = () => {
+            const value = confirmPasswordInput.value;
+            const valid = value.length > 0 && value === passwordInput.value;
+            return setFieldState(
+                confirmPasswordInput,
+                valid,
+                valid ? "" : "Confirm password must match password."
+            );
+        };
+
+        usernameInput.addEventListener("input", validateUsername);
+        emailInput.addEventListener("input", validateEmail);
+        passwordInput.addEventListener("input", () => {
+            validatePassword();
+            if (confirmPasswordInput.value) {
+                validateConfirmPassword();
+            }
+        });
+        confirmPasswordInput.addEventListener("input", validateConfirmPassword);
+
+        form.addEventListener("submit", (event) => {
+            const isUsernameValid = validateUsername();
+            const isEmailValid = validateEmail();
+            const isPasswordValid = validatePassword();
+            const isConfirmPasswordValid = validateConfirmPassword();
+            const isFormValid = isUsernameValid && isEmailValid && isPasswordValid && isConfirmPasswordValid;
+
+            if (!isFormValid || !form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            form.classList.add("was-validated");
+        });
+    })();
+</script>

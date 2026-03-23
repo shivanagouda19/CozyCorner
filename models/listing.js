@@ -89,7 +89,7 @@ listingSchema.index({ ratingAverage: -1, price: 1 });
 listingSchema.index({ title: "text", location: "text" });
 listingSchema.index({ "images.filename": 1 });
 
-listingSchema.pre("save", function normalizeLegacyImage(next) {
+listingSchema.pre("save", function normalizeLegacyImage() {
     if ((!Array.isArray(this.images) || this.images.length === 0) && this.image?.url) {
         this.images = [{
             url: this.image.url,
@@ -104,7 +104,6 @@ listingSchema.pre("save", function normalizeLegacyImage(next) {
         };
     }
 
-    next();
 });
 listingSchema.index({ "blockedDates.start": 1, "blockedDates.end": 1 });
 

@@ -30,7 +30,29 @@
 				<div class="invalid-feedback">Please enter your password.</div>
 			</div>
 
+			<div class="mb-3">
+				<a href="/forgot-password">Forgot password?</a>
+			</div>
+
 			<button type="submit" class="btn btn-success">LogIn</button>
+		</form>
+
+		<hr class="my-4" />
+		<p class="mb-2">Did not receive verification email?</p>
+		<form action="/resend-verification" method="POST" class="row g-2">
+			<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+			<div class="col-12 col-md-8">
+				<input
+					name="identifier"
+					type="text"
+					class="form-control"
+					placeholder="Enter username or email"
+					required
+				/>
+			</div>
+			<div class="col-12 col-md-4 d-grid">
+				<button type="submit" class="btn btn-outline-secondary">Resend Verification</button>
+			</div>
 		</form>
 	</div>
 </div>

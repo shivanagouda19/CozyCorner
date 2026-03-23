@@ -40,6 +40,7 @@ const config = {
         env,
         isProduction,
         port: toNumber(process.env.PORT, 8080),
+        baseUrl: process.env.APP_BASE_URL || `http://localhost:${toNumber(process.env.PORT, 8080)}`,
     },
     db: {
         mongoUrl,
@@ -70,6 +71,14 @@ const config = {
     },
     logging: {
         level: process.env.LOG_LEVEL || "info",
+    },
+    email: {
+        from: process.env.EMAIL_FROM || "no-reply@wanderlust.local",
+        host: process.env.SMTP_HOST || "",
+        port: toNumber(process.env.SMTP_PORT, 587),
+        secure: String(process.env.SMTP_SECURE || "false").toLowerCase() === "true",
+        user: process.env.SMTP_USER || "",
+        pass: process.env.SMTP_PASS || "",
     },
 };
 
