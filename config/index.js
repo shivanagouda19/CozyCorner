@@ -20,6 +20,14 @@ const toNumber = (value, fallback) => {
     return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const toSameSite = (value, fallback = "lax") => {
+    const normalized = String(value || fallback).trim().toLowerCase();
+    if (["strict", "lax", "none"].includes(normalized)) {
+        return normalized;
+    }
+    return fallback;
+};
+
 const mongoUrl = getRequired("ATLASDB");
 const sessionSecret = process.env.SESSION_SECRET || process.env.SECRET;
 
@@ -49,7 +57,7 @@ const config = {
         secret: sessionSecret,
         name: process.env.SESSION_NAME || "wl.sid",
         maxAgeMs: toNumber(process.env.SESSION_MAX_AGE_MS, 1000 * 60 * 60 * 24 * 3),
-        sameSite: isProduction ? "lax" : "strict",
+        sameSite: toSameSite(process.env.SESSION_SAME_SITE, "lax"),
         secureCookies: isProduction,
     },
     security: {
