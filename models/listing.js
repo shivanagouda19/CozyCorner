@@ -64,6 +64,10 @@ const listingSchema = new Schema({
     },
     blockedDates: [
         {
+            booking: {
+                type: Schema.Types.ObjectId,
+                ref: "Booking",
+            },
             start: {
                 type: Date,
                 required: true,
@@ -88,6 +92,7 @@ listingSchema.index({ category: 1, price: 1 });
 listingSchema.index({ ratingAverage: -1, price: 1 });
 listingSchema.index({ title: "text", location: "text" });
 listingSchema.index({ "images.filename": 1 });
+listingSchema.index({ "blockedDates.booking": 1 });
 
 listingSchema.pre("save", function normalizeLegacyImage() {
     if ((!Array.isArray(this.images) || this.images.length === 0) && this.image?.url) {

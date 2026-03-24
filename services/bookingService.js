@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Booking = require("../models/booking");
 const Listing = require("../models/listing");
 const availabilityService = require("./availability.service");
@@ -5,6 +6,7 @@ const config = require("../config");
 const ValidationError = require("../errors/ValidationError");
 const NotFoundError = require("../errors/NotFoundError");
 const ConflictError = require("../errors/ConflictError");
+const BookingConflictError = require("../errors/BookingConflictError");
 const AuthorizationError = require("../errors/AuthorizationError");
 const {
     ACTIVE_BOOKING_STATUSES,
@@ -26,22 +28,76 @@ const syncCompletedBookings = async (query) => {
     );
 };
 
-const createBooking = async ({ listingId, guestId, bookingInput }) => {
-    if (!listingId) {
-        throw new ValidationError("Listing id is required to create a booking.");
+const reserveListingDatesAtomically = async ({ listingId, guestId, bookingId, checkIn, checkOut }) => {
+    const listing = await Listing.findOneAndUpdate(
+        {
+            _id: listingId,
+            owner: { $ne: guestId },
+            status: "active",
+            blockedDates: {
+                $not: {
+                    $elemMatch: {
+                        start: { $lt: checkOut },
+                        end: { $gt: checkIn },
+                    },
+                },
+            },
+        },
+        {
+            $push: {
+                blockedDates: {
+                    booking: bookingId,
+                    start: checkIn,
+                    end: checkOut,
+                },
+            },
+        },
+        {
+            new: true,
+            projection: "title price owner status",
+        }
+    );
+
+    if (listing) {
+        if (!listing.price || listing.price <= 0) {
+            // Compensating action because price validation happens after date lock.
+            await Listing.updateOne(
+                { _id: listingId },
+                {
+                    $pull: {
+                        blockedDates: {
+                            booking: bookingId,
+                            start: checkIn,
+                            end: checkOut,
+                        },
+                    },
+                }
+            );
+            throw new ValidationError("This listing cannot be booked because price is not configured.");
+        }
+
+        return listing;
     }
 
-    const listing = await Listing.findById(listingId).select("title price owner status");
-    if (!listing) {
+    const failureListing = await Listing.findById(listingId).select("owner status");
+    if (!failureListing) {
         throw new NotFoundError("Listing does not exist.");
     }
 
-    if (!listing.price || listing.price <= 0) {
-        throw new ValidationError("This listing cannot be booked because price is not configured.");
+    if (failureListing.owner && failureListing.owner.equals(guestId)) {
+        throw new AuthorizationError("You cannot book your own listing.");
     }
 
-    if (listing.owner && listing.owner.equals(guestId)) {
-        throw new AuthorizationError("You cannot book your own listing.");
+    if (failureListing.status !== "active") {
+        throw new ConflictError("Listing is not available for booking.");
+    }
+
+    throw new BookingConflictError("Selected dates are no longer available.");
+};
+
+const createBooking = async ({ listingId, guestId, bookingInput }) => {
+    if (!listingId) {
+        throw new ValidationError("Listing id is required to create a booking.");
     }
 
     const checkIn = parseDateInput(bookingInput?.checkIn);
@@ -65,10 +121,15 @@ const createBooking = async ({ listingId, guestId, bookingInput }) => {
         throw new ValidationError(`Booking cannot exceed ${config.booking.maxBookableNights} nights.`);
     }
 
-    const isRangeAvailable = await availabilityService.isDateRangeAvailable(listingId, checkIn, checkOut);
-    if (!isRangeAvailable) {
-        throw new ValidationError("Listing not available for selected dates");
-    }
+    const bookingId = new mongoose.Types.ObjectId();
+
+    const listing = await reserveListingDatesAtomically({
+        listingId,
+        guestId,
+        bookingId,
+        checkIn,
+        checkOut,
+    });
 
     const pricing = calculateBookingPrice({
         nightlyRate: listing.price,
@@ -77,6 +138,7 @@ const createBooking = async ({ listingId, guestId, bookingInput }) => {
     });
 
     const booking = new Booking({
+        _id: bookingId,
         guest: guestId,
         host: listing.owner,
         listing: listing._id,
@@ -91,7 +153,24 @@ const createBooking = async ({ listingId, guestId, bookingInput }) => {
         currency: "INR",
     });
 
-    await booking.save();
+    try {
+        await booking.save();
+    } catch (error) {
+        // Best-effort rollback for blockedDates when booking persistence fails.
+        await Listing.updateOne(
+            { _id: listing._id },
+            {
+                $pull: {
+                    blockedDates: {
+                        booking: bookingId,
+                        start: checkIn,
+                        end: checkOut,
+                    },
+                },
+            }
+        );
+        throw error;
+    }
 
     return {
         booking,
@@ -121,23 +200,52 @@ const getBookingSuccessPayload = async ({ bookingId, guestId }) => {
 };
 
 const cancelBooking = async ({ bookingId, cancellationReason }) => {
-    const booking = await Booking.findById(bookingId).populate("listing", "title");
+    const cancelledAt = new Date();
+
+    const booking = await Booking.findOneAndUpdate(
+        {
+            _id: bookingId,
+            status: { $in: ["pending", "confirmed"] },
+        },
+        {
+            $set: {
+                status: "cancelled",
+                cancelledAt,
+                cancellationReason: cancellationReason || "Cancelled by guest",
+            },
+        },
+        {
+            new: true,
+        }
+    ).populate("listing", "title");
+
     if (!booking) {
+        const existingBooking = await Booking.findById(bookingId).select("status");
+        if (!existingBooking) {
+            throw new NotFoundError("Booking not found.");
+        }
+
+        if (existingBooking.status === "cancelled") {
+            throw new ConflictError("Booking is already cancelled.");
+        }
+
+        if (!["pending", "confirmed"].includes(existingBooking.status)) {
+            throw new ConflictError("Only pending or confirmed bookings can be cancelled.");
+        }
+
         throw new NotFoundError("Booking not found.");
     }
 
-    if (booking.status === "cancelled") {
-        throw new ConflictError("Booking is already cancelled.");
-    }
-
-    if (booking.status === "completed") {
-        throw new ConflictError("Completed booking cannot be cancelled.");
-    }
-
-    booking.status = "cancelled";
-    booking.cancelledAt = new Date();
-    booking.cancellationReason = cancellationReason || "Cancelled by guest";
-    await booking.save();
+    await Listing.updateOne(
+        { _id: booking.listing?._id || booking.listing },
+        {
+            $pull: {
+                blockedDates: {
+                    booking: booking._id,
+                },
+            },
+        }
+    );
 
     return booking;
 };
