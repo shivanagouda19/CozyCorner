@@ -16,6 +16,7 @@ const ejsMate = require("ejs-mate"); // help to make templte
 const AppError = require("./errors/AppError");
 const logger = require("./utils/logger");
 const requestLogger = require("./Middleware/requestLogger");
+const multerErrorHandler = require("./Middleware/multerErrorHandler");
 const errorHandler = require("./Middleware/errorHandler");
 const listingsRouter = require("./routes/listing.js") // import the router
 const reviewRouter = require("./routes/review.js")// import the router
@@ -258,6 +259,9 @@ app.use("/listings/:id/bookings", bookingRouter)
 app.use("/bookings", bookingRouter)
 app.use("/", userRouter)
 app.use("/", profileRouter)
+
+// Convert Multer upload-limit errors into user-friendly flash redirects for form routes.
+app.use(multerErrorHandler);
 
 //err mmiddileware
 app.use((req, res, next) => {

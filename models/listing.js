@@ -16,7 +16,7 @@ const listingSchema = new Schema({
         required: true,
     },
     description: String,
-    image: imageSchema,
+    // image: imageSchema,
     images: {
         type: [imageSchema],
         default: [],
@@ -37,7 +37,7 @@ const listingSchema = new Schema({
     },
     category: {
         type: String,
-        enum: ["villa", "apartment", "farmhouse", "room"],
+        enum: ["villa", "apartment", "farmhouse", "room", "hotel"],
         default: "apartment",
         index: true,
     },
@@ -94,22 +94,22 @@ listingSchema.index({ title: "text", location: "text" });
 listingSchema.index({ "images.filename": 1 });
 listingSchema.index({ "blockedDates.booking": 1 });
 
-listingSchema.pre("save", function normalizeLegacyImage() {
-    if ((!Array.isArray(this.images) || this.images.length === 0) && this.image?.url) {
-        this.images = [{
-            url: this.image.url,
-            filename: this.image.filename || "",
-        }];
-    }
+// listingSchema.pre("save", function normalizeLegacyImage() {
+//     if ((!Array.isArray(this.images) || this.images.length === 0) && this.image?.url) {
+//         this.images = [{
+//             url: this.image.url,
+//             filename: this.image.filename || "",
+//         }];
+//     }
 
-    if (Array.isArray(this.images) && this.images.length > 0) {
-        this.image = {
-            url: this.images[0].url,
-            filename: this.images[0].filename || "",
-        };
-    }
+//     if (Array.isArray(this.images) && this.images.length > 0) {
+//         this.image = {
+//             url: this.images[0].url,
+//             filename: this.images[0].filename || "",
+//         };
+//     }
 
-});
+// });
 listingSchema.index({ "blockedDates.start": 1, "blockedDates.end": 1 });
 
 //Mongoose middleware

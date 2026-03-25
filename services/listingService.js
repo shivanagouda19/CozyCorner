@@ -3,15 +3,17 @@ const Listing = require("../models/listing");
 const config = require("../config");
 const ValidationError = require("../errors/ValidationError");
 const NotFoundError = require("../errors/NotFoundError");
+const ExternalServiceError = require("../errors/ExternalServiceError");
 const { geocodeListingLocation } = require("./mapService");
 const { cloudinary } = require("../cloudConfig");
 
 const FALLBACK_ZOOM = 10;
 const DEFAULT_MAX_PRICE = 20000;
-const FILTER_CATEGORIES = ["villa", "apartment", "farmhouse", "room"];
+const FILTER_CATEGORIES = ["villa", "apartment", "farmhouse", "room", "hotel"];
 const ALLOWED_INDEX_FILTER_KEYS = ["minPrice", "maxPrice", "category", "search", "minRating"];
 const MONGO_OPERATOR_PATTERN = /\$(?:gt|lt|regex|where|ne)\b/gi;
 const MAX_LISTING_IMAGES = 5;
+const MIN_LISTING_IMAGES = 1;
 const DEFAULT_LISTING_IMAGE = {
     url: "https://images.unsplash.com/photo-1468824357306-a439d58ccb1c",
     filename: "default-listing-image",
@@ -55,14 +57,27 @@ const withPrimaryImage = (listing) => {
 
 const toUploadedImages = (files = []) => {
     if (!Array.isArray(files) || !files.length) return [];
-    return files
+    const uploaded = files
         .map((file) => ({ url: file.path, filename: file.filename }))
         .filter((image) => image.url && image.filename);
+
+    const seen = new Set();
+    return uploaded.filter((image) => {
+        if (seen.has(image.filename)) return false;
+        seen.add(image.filename);
+        return true;
+    });
 };
 
 const ensureImageLimit = (count) => {
     if (count > MAX_LISTING_IMAGES) {
         throw new ValidationError(`A listing can have up to ${MAX_LISTING_IMAGES} images.`);
+    }
+};
+
+const ensureMinimumImageCount = (count) => {
+    if (count < MIN_LISTING_IMAGES) {
+        throw new ValidationError("At least one listing image is required.");
     }
 };
 
@@ -72,18 +87,78 @@ const normalizeDeleteFilenames = (deleteImages) => {
     return [String(deleteImages)];
 };
 
-const destroyCloudinaryAssets = async (filenames = []) => {
+const deleteImagesFromCloudinary = async (filenames = []) => {
     const safeFilenames = filenames
         .map((name) => String(name || ""))
         .filter((name) => name && name !== DEFAULT_LISTING_IMAGE.filename);
 
-    if (!safeFilenames.length) return;
+    if (!safeFilenames.length) {
+        return {
+            deleted: [],
+            failed: [],
+        };
+    }
 
-    await Promise.all(
-        safeFilenames.map((filename) =>
-            cloudinary.uploader.destroy(filename).catch(() => null)
-        )
+    const deletionResults = await Promise.allSettled(
+        safeFilenames.map((filename) => cloudinary.uploader.destroy(filename))
     );
+
+    const deleted = [];
+    const failed = [];
+
+    deletionResults.forEach((result, index) => {
+        const filename = safeFilenames[index];
+        if (result.status === "fulfilled") {
+            const cloudinaryResult = String(result.value?.result || "").toLowerCase();
+            if (cloudinaryResult === "ok" || cloudinaryResult === "not found") {
+                deleted.push(filename);
+            } else {
+                failed.push(filename);
+            }
+            return;
+        }
+
+        failed.push(filename);
+    });
+
+    return { deleted, failed };
+};
+
+const createListingImages = (files = []) => {
+    const looksNormalized = Array.isArray(files) && files.every((file) => file?.url && file?.filename);
+    const uploadedImages = looksNormalized
+        ? files.map(normalizeImageShape).filter(Boolean)
+        : toUploadedImages(files);
+
+    ensureImageLimit(uploadedImages.length);
+    ensureMinimumImageCount(uploadedImages.length);
+    return uploadedImages;
+};
+
+const updateListingImages = ({ currentImages = [], files = [], deleteImages = [] }) => {
+    const normalizedCurrent = Array.isArray(currentImages)
+        ? currentImages.map(normalizeImageShape).filter(Boolean)
+        : [];
+
+    const deleteFilenames = new Set(normalizeDeleteFilenames(deleteImages));
+    const removedImages = normalizedCurrent.filter((image) => deleteFilenames.has(image.filename));
+    let retainedImages = normalizedCurrent.filter((image) => !deleteFilenames.has(image.filename));
+    const newImages = toUploadedImages(files);
+
+    if (newImages.length) {
+        retainedImages = retainedImages.filter((image) => image.filename !== DEFAULT_LISTING_IMAGE.filename);
+    }
+
+    const nextImages = [...retainedImages, ...newImages];
+
+    ensureImageLimit(nextImages.length);
+    ensureMinimumImageCount(nextImages.length);
+
+    return {
+        nextImages,
+        newImages,
+        removedImages,
+    };
 };
 
 const toFiniteNumber = (value, fallback = null) => {
@@ -310,36 +385,35 @@ const getListingDetail = async (listingId) => {
 
 const createListing = async ({ listingData, files, ownerId }) => {
     const newListing = new Listing(listingData);
-
-    const requestedCoordinates = parseCoordinates(listingData?.geometry?.coordinates);
-    if (requestedCoordinates) {
-        newListing.geometry = {
-            type: "Point",
-            coordinates: requestedCoordinates,
-        };
-    } else {
-        const geocodedLocation = await geocodeListingLocation({
-            location: listingData?.location,
-            country: listingData?.country,
-        });
-
-        if (geocodedLocation?.geometry) {
-            newListing.geometry = geocodedLocation.geometry;
-        }
-    }
-
     const uploadedImages = toUploadedImages(files);
 
     try {
-        ensureImageLimit(uploadedImages.length);
+        const requestedCoordinates = parseCoordinates(listingData?.geometry?.coordinates);
+        if (requestedCoordinates) {
+            newListing.geometry = {
+                type: "Point",
+                coordinates: requestedCoordinates,
+            };
+        } else {
+            const geocodedLocation = await geocodeListingLocation({
+                location: listingData?.location,
+                country: listingData?.country,
+            });
 
-        newListing.images = uploadedImages.length ? uploadedImages : [{ ...DEFAULT_LISTING_IMAGE }];
-        newListing.image = newListing.images[0];
+            if (geocodedLocation?.geometry) {
+                newListing.geometry = geocodedLocation.geometry;
+            }
+        }
+
+        const finalImages = createListingImages(uploadedImages);
+
+        newListing.images = finalImages;
+        // newListing.image = newListing.images[0];
 
         newListing.owner = ownerId;
         await newListing.save();
     } catch (error) {
-        await destroyCloudinaryAssets(uploadedImages.map((image) => image.filename));
+        await deleteImagesFromCloudinary(uploadedImages.map((image) => image.filename));
         throw error;
     }
 
@@ -406,31 +480,38 @@ const updateListing = async ({ listingId, listingData, files, deleteImages }) =>
     Object.assign(listing, listingData);
 
     const currentImages = collectListingImages(listing);
-    const deleteFilenames = new Set(normalizeDeleteFilenames(deleteImages));
-    let retainedImages = currentImages.filter((image) => !deleteFilenames.has(image.filename));
-    const newImages = toUploadedImages(files);
-
-    if (newImages.length) {
-        retainedImages = retainedImages.filter((image) => image.filename !== DEFAULT_LISTING_IMAGE.filename);
-    }
-
-    const nextImages = [...retainedImages, ...newImages];
+    const { nextImages, newImages, removedImages } = updateListingImages({
+        currentImages,
+        files,
+        deleteImages,
+    });
+    let saveCompleted = false;
 
     try {
-        ensureImageLimit(nextImages.length);
-
-        const finalImages = nextImages.length ? nextImages : [{ ...DEFAULT_LISTING_IMAGE }];
-        listing.images = finalImages;
-        listing.image = finalImages[0];
+        listing.images = nextImages;
+        listing.image = nextImages[0];
 
         await listing.save();
+        saveCompleted = true;
 
-        const removedImages = currentImages
-            .filter((image) => deleteFilenames.has(image.filename))
-            .map((image) => image.filename);
-        await destroyCloudinaryAssets(removedImages);
+        const cloudinaryDeleteResult = await deleteImagesFromCloudinary(
+            removedImages.map((image) => image.filename)
+        );
+
+        if (cloudinaryDeleteResult.failed.length) {
+            // Keep DB and Cloudinary consistent by restoring only assets that failed deletion.
+            const failedSet = new Set(cloudinaryDeleteResult.failed);
+            const failedImagesToRestore = removedImages.filter((image) => failedSet.has(image.filename));
+            listing.images = [...listing.images, ...failedImagesToRestore];
+            listing.image = listing.images[0] || null;
+            await listing.save();
+
+            throw new ExternalServiceError("Some images could not be deleted from cloud storage. No image changes were lost.");
+        }
     } catch (error) {
-        await destroyCloudinaryAssets(newImages.map((image) => image.filename));
+        if (!saveCompleted) {
+            await deleteImagesFromCloudinary(newImages.map((image) => image.filename));
+        }
         throw error;
     }
 
@@ -446,8 +527,10 @@ const deleteListing = async (listingId) => {
     }
 
     const imageFilenames = collectListingImages(existingListing).map((image) => image.filename);
-
-    await destroyCloudinaryAssets(imageFilenames);
+    const cloudinaryDeleteResult = await deleteImagesFromCloudinary(imageFilenames);
+    if (cloudinaryDeleteResult.failed.length) {
+        throw new ExternalServiceError("Unable to remove all listing images from cloud storage.");
+    }
 
     const deletedListing = await Listing.findByIdAndDelete(listingId);
     if (!deletedListing) {
@@ -473,6 +556,9 @@ const toggleListingStatus = async (listingId) => {
 };
 
 module.exports = {
+    createListingImages,
+    updateListingImages,
+    deleteImagesFromCloudinary,
     getIndexData,
     sanitizeIndexFilters,
     getNewFormData,

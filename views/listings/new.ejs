@@ -30,22 +30,40 @@
                         </div>
                 </div>
                 <br />
-                <div class="mb-3">
+                <div class="mb-3 listing-image-upload" data-image-upload data-max-images="5" data-existing-images="0" data-min-images="1">
                     <label for="listingImages" class="form-label">Upload Images</label>
-                    <input name="listingImages" id="listingImages" type="file" accept="image/*" class="form-control" multiple />
-                    <div class="form-text">You can upload up to 5 images per listing.</div>
+                    <div class="upload-dropzone" data-upload-dropzone>
+                        <input name="listingImages" id="listingImages" type="file" accept="image/*" class="upload-input" multiple required data-upload-input />
+                        <div class="upload-dropzone-content">
+                            <i class="fa-regular fa-images upload-dropzone-icon"></i>
+                            <p class="mb-1 fw-semibold">Drag and drop images here</p>
+                            <p class="mb-0 text-muted">or click to browse files</p>
+                        </div>
+                    </div>
+                    <div class="upload-meta mt-2">
+                        <span class="upload-count" data-upload-count>0 selected</span>
+                        <span class="upload-limit" data-upload-limit>You can upload up to 5 images.</span>
+                    </div>
+                    <div class="upload-preview-grid mt-3" data-upload-preview aria-live="polite"></div>
+                    <div class="invalid-feedback d-block" data-upload-error></div>
                 </div>
                 <br />
                 <div class="form-group">
                     <label for="category">Category</label>
-                    <select name="listing[category]" required>
-                        <option value="">Select Category</option>
+                    <select name="listing[category]" id="category" class="form-select" required>
+                        <option value="" selected>Select Category</option>
                         <option value="villa">Villa</option>
                         <option value="apartment">Apartment</option>
                         <option value="farmhouse">Farmhouse</option>
                         <option value="room">Room</option>
                         <option value="hotel">Hotel</option>
                     </select>
+                    <div class="valid-feedback">
+                        Looks good!
+                    </div>
+                    <div class="invalid-feedback">
+                        Please choose a category.
+                    </div>
                 </div><br>
                 <div class="row">
                     <div class="mb-3 col-md-4">
@@ -103,6 +121,21 @@
     </div>
     <script src="/js/map/core.js"></script>
     <script src="/js/map/createMap.js"></script>
+
+    <div class="modal fade" id="uploadPreviewModal" tabindex="-1" aria-labelledby="uploadPreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="uploadPreviewModalLabel">Image Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img src="" alt="Upload preview" class="img-fluid rounded" id="uploadPreviewModalImage">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- <input name="title" placeholder="enter title" type="text" />
         <br />
         <textarea name="description" placeholder="enter description"></textarea>
