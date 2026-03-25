@@ -216,7 +216,7 @@ const sessionOptions = {
     },
 };
 app.get("/", (req, res) => {
-    res.send(`<a href="/listings">Go to Listings</a>`);
+    res.redirect("/listings");
 });
 app.use(session(sessionOptions));//Creates sessions for , actually generates and sends the session cookie to the browser
 app.use(flash());
