@@ -2,7 +2,7 @@
 
 CozyCorner is a full-stack property booking platform inspired by Airbnb, built with production-style backend architecture and secure authentication.
 
-🔗 Live: https://your-render-link.com](https://cozycorner-s64j.onrender.com
+🔗 Live: https://cozycorner-s64j.onrender.com
 
 ✨ Features
 Secure authentication (email verification, password reset, account lock)
