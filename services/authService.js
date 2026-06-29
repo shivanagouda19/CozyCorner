@@ -53,8 +53,23 @@ const resendVerificationForIdentifier = async ({ identifier, requestMeta = {} })
     const normalizedEmail = rawIdentifier.toLowerCase();
 
     if (!rawIdentifier) {
+        logger.info("security.verification.resend.request", {
+            requestId: requestMeta.requestId || null,
+            identifier: null,
+            userId: null,
+            status: "missing_identifier",
+            ip: requestMeta.ip || null,
+        });
         return { delivered: false };
     }
+
+    logger.info("security.verification.resend.request", {
+        requestId: requestMeta.requestId || null,
+        identifier: rawIdentifier,
+        userId: null,
+        status: "lookup_started",
+        ip: requestMeta.ip || null,
+    });
 
     const user = await User.findOne({
         $or: [
@@ -89,6 +104,15 @@ const resendVerificationForIdentifier = async ({ identifier, requestMeta = {} })
     await user.save({ validateBeforeSave: false });
 
     const verificationUrl = buildAppUrl(`/verify-email/${encodeURIComponent(verificationToken)}`);
+
+    logger.info("security.verification.resend.request", {
+        requestId: requestMeta.requestId || null,
+        identifier: rawIdentifier,
+        userId: String(user._id),
+        status: "email_send_started",
+        ip: requestMeta.ip || null,
+    });
+
     await sendVerificationEmail({
         to: user.email,
         username: user.username,

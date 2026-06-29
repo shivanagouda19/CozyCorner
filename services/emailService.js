@@ -16,6 +16,9 @@ const createTransporter = () => {
         host: config.email.host,
         port: config.email.port,
         secure: config.email.secure,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
         auth: {
             user: config.email.user,
             pass: config.email.pass,
@@ -44,6 +47,13 @@ const sendVerificationEmail = async ({ to, username, verificationUrl }) => {
     }
 
     try {
+        logger.info("email.verification.send.started", {
+            to,
+            host: config.email.host || null,
+            port: config.email.port,
+            secure: config.email.secure,
+        });
+
         await transporter.sendMail({
             from: config.email.from,
             to,
@@ -90,6 +100,13 @@ const sendPasswordResetEmail = async ({ to, username, resetUrl }) => {
     }
 
     try {
+        logger.info("email.passwordReset.send.started", {
+            to,
+            host: config.email.host || null,
+            port: config.email.port,
+            secure: config.email.secure,
+        });
+
         await transporter.sendMail({
             from: config.email.from,
             to,
