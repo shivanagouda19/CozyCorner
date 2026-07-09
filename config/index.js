@@ -82,6 +82,7 @@ const config = {
     },
     email: {
         from: process.env.EMAIL_FROM || "no-reply@wanderlust.local",
+        brevoApiKey: process.env.BREVO_API_KEY || process.env.BREVO_APIKEY || "",
         host: process.env.SMTP_HOST || "",
         port: toNumber(process.env.SMTP_PORT, 587),
         secure: String(process.env.SMTP_SECURE || "false").toLowerCase() === "true",
